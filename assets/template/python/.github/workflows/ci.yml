@@ -1,0 +1,120 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  # Python that builds the release (same patch version in release.yml; tests/test_cli.py checks they agree).
+  RELEASE_PYTHON: "3.13.14"
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+      - run: uv sync --locked
+      - run: uv run ruff format --check src tests
+      - run: uv run ruff check src tests
+      - name: actionlint
+        run: |
+          bash <(curl -sSfL https://raw.githubusercontent.com/rhysd/actionlint/v1.7.7/scripts/download-actionlint.bash) 1.7.7
+          ./actionlint -color
+
+  test:
+    needs: lint
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { os: ubuntu-latest, python: "3.11" }
+          - { os: ubuntu-latest, python: "3.13" }
+          - { os: windows-latest, python: "3.13" }
+    runs-on: ${{ matrix.os }}
+    env:
+      QT_QPA_PLATFORM: offscreen
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+        with:
+          python-version: ${{ matrix.python }}
+      - name: Qt runtime libraries (Linux)
+        if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install -y libegl1 libxkbcommon0 libgl1 libfontconfig1 libdbus-1-3
+      - run: uv sync --locked --extra gui
+      - name: Tests (core, CLI, GUI state, GUI window offscreen, docs drift)
+        shell: bash
+        run: |
+          set -o pipefail
+          # Failures are also surfaced as annotations (readable through the API without downloading logs).
+          if ! uv run pytest -rf 2>&1 | tee test.log; then
+            grep -E "^FAILED|^ERROR|Error:" test.log | head -40 | while IFS= read -r l; do echo "::error title=pytest::${l}"; done
+            exit 1
+          fi
+      - name: Sample run + standalone verification
+        shell: bash
+        run: |
+          uv run rv-hashinv self-test
+          uv run rv-hashinv scan -i examples/sample/evidence --hash sha256,blake3 --lang all --out ci-out --progress none --no-timestamp
+          run=$(find ci-out/logs -mindepth 1 -maxdepth 1 -type d -printf '%f\n' | sort | tail -n 1)
+          uv run python tests/verify_chain.py "ci-out/logs/$run"
+          uv run python tests/validate_reports.py "ci-out/reports/$run"
+      - name: Sample script (compares the tool's hashes.csv with expected_hashes.csv)
+        if: runner.os == 'Linux'
+        env:
+          RV_NO_TIMESTAMP: "1"
+          RV_SAMPLE_OUT: sample-out
+        run: uv run sh examples/sample/run.sh rv-hashinv
+      - name: Cross-profile golden case (written by the Rust profile; tests/golden/regenerate.py)
+        shell: bash
+        run: |
+          for z in tests/golden/case-by-*.zip.b64; do
+            rm -rf golden-out && uv run python tests/golden/unpack.py "$z" golden-out
+            uv run rv-hashinv verify-case golden-out/CASE-GOLDEN
+            for logs in golden-out/CASE-GOLDEN/runs/*/*/logs; do
+              uv run rv-hashinv verify-log "$logs"
+            done
+          done
+
+      - name: Real TSA smoke test (DigiCert; network-dependent, informative)
+        if: runner.os == 'Windows'
+        continue-on-error: true
+        shell: bash
+        run: |
+          uv run rv-hashinv scan -i examples/sample/evidence --out tsa-out --progress none | tee tsa.txt
+          grep -q "timestamp: ok" tsa.txt
+          run=$(find tsa-out/logs -mindepth 1 -maxdepth 1 -type d -printf '%f\n' | sort | tail -n 1)
+          uv run rv-hashinv verify-log "tsa-out/logs/$run"
+
+  freeze-smoke:
+    needs: test
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+        with:
+          python-version: ${{ env.RELEASE_PYTHON }}
+      - run: uv sync --locked --extra gui --group build
+      - name: Nuitka standalone build
+        run: uv run python packaging/build_windows.py
+      - name: Frozen CLI works
+        shell: pwsh
+        run: |
+          .\dist\rv-hashinv\rv-hashinv.exe self-test
+          if ($LASTEXITCODE -ne 0) { exit 1 }
+          .\examples\sample\run.ps1 -Bin .\dist\rv-hashinv\rv-hashinv.exe
+      - uses: actions/upload-artifact@v4
+        with:
+          name: rv-hashinv-windows-x64-${{ github.sha }}
+          path: dist/rv-hashinv
+          retention-days: 14

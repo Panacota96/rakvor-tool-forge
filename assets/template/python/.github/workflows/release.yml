@@ -1,0 +1,139 @@
+name: Release
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Existing tag to (re)build, e.g. v0.1.0. Leave empty to build a test package."
+        required: false
+
+permissions:
+  contents: read
+
+env:
+  # Pinned patch version of the Python that builds (and is frozen into) the release; environment.json records it
+  # as tool.python. Same value as RELEASE_PYTHON in ci.yml (freeze-smoke); tests/test_cli.py checks they agree.
+  RELEASE_PYTHON: "3.13.14"
+
+jobs:
+  release-please:
+    if: github.event_name == 'push'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+    outputs:
+      created: ${{ steps.rp.outputs.release_created }}
+      tag: ${{ steps.rp.outputs.tag_name }}
+    steps:
+      - id: rp
+        uses: googleapis/release-please-action@v4
+        with:
+          config-file: release-please-config.json
+          manifest-file: .release-please-manifest.json
+
+  windows:
+    needs: release-please
+    if: always() && (needs.release-please.outputs.created == 'true' || github.event_name == 'workflow_dispatch')
+    runs-on: windows-latest
+    permissions:
+      contents: write
+      id-token: write
+      attestations: write
+    env:
+      TAG: ${{ needs.release-please.outputs.tag || inputs.tag }}
+      SIGN_ENABLED: ${{ secrets.SIGN_PFX_BASE64 != '' }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.TAG || github.sha }}
+      - uses: astral-sh/setup-uv@v6
+        with:
+          python-version: ${{ env.RELEASE_PYTHON }}
+      - run: uv sync --locked --extra gui --group build
+      - name: Freeze with Nuitka (standalone folder)
+        run: uv run python packaging/build_windows.py
+      - name: Code signing of the executables (runs only when the SIGN_PFX_BASE64 secret exists)
+        if: env.SIGN_ENABLED == 'true'
+        shell: pwsh
+        env:
+          SIGN_PFX_BASE64: ${{ secrets.SIGN_PFX_BASE64 }}
+          SIGN_PFX_PASSWORD: ${{ secrets.SIGN_PFX_PASSWORD }}
+        run: |
+          # OV/EV certificate as base64 PFX in repository secrets. Alternative for the French entity:
+          # Azure Artifact Signing (azure/artifact-signing-action) instead of this step.
+          $pfx = Join-Path $env:RUNNER_TEMP "sign.pfx"
+          [IO.File]::WriteAllBytes($pfx, [Convert]::FromBase64String($env:SIGN_PFX_BASE64))
+          $signtool = Get-ChildItem "${env:ProgramFiles(x86)}\Windows Kits\10\bin\*\x64\signtool.exe" | Sort-Object FullName | Select-Object -Last 1
+          Get-ChildItem dist\rv-hashinv\rv-hashinv.exe, dist\rv-hashinv\rv-hashinv-gui.exe | ForEach-Object {
+            & $signtool.FullName sign /f $pfx /p $env:SIGN_PFX_PASSWORD /fd SHA256 /tr http://timestamp.digicert.com /td SHA256 $_.FullName
+            if ($LASTEXITCODE -ne 0) { exit 1 }
+          }
+          Remove-Item $pfx
+      - name: Verify the frozen build before packaging
+        shell: pwsh
+        run: |
+          .\dist\rv-hashinv\rv-hashinv.exe self-test
+          if ($LASTEXITCODE -ne 0) { exit 1 }
+          .\examples\sample\run.ps1 -Bin .\dist\rv-hashinv\rv-hashinv.exe
+      - name: Version
+        id: v
+        shell: bash
+        run: echo "version=$(uv run python -c 'import rv_hashinv; print(rv_hashinv.__version__)')" >> "$GITHUB_OUTPUT"
+      - name: Portable zip
+        shell: pwsh
+        run: |
+          $name = "rv-hashinv-${{ steps.v.outputs.version }}-windows-x64"
+          Copy-Item -Recurse docs, examples dist\rv-hashinv
+          Remove-Item -Recurse -Force dist\rv-hashinv\examples\sample\out -ErrorAction SilentlyContinue
+          Compress-Archive -Path dist\rv-hashinv\* -DestinationPath dist\$name.zip
+      - name: Installer (Inno Setup, preinstalled on windows-latest)
+        shell: pwsh
+        run: |
+          & "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe" /DAppVersion=${{ steps.v.outputs.version }} /DSourceDir=$PWD /O$PWD\dist packaging\windows\installer.iss
+      - name: Code signing of the installer (runs only when the SIGN_PFX_BASE64 secret exists)
+        if: env.SIGN_ENABLED == 'true'
+        shell: pwsh
+        env:
+          SIGN_PFX_BASE64: ${{ secrets.SIGN_PFX_BASE64 }}
+          SIGN_PFX_PASSWORD: ${{ secrets.SIGN_PFX_PASSWORD }}
+        run: |
+          # OV/EV certificate as base64 PFX in repository secrets. Alternative for the French entity:
+          # Azure Artifact Signing (azure/artifact-signing-action) instead of this step.
+          $pfx = Join-Path $env:RUNNER_TEMP "sign.pfx"
+          [IO.File]::WriteAllBytes($pfx, [Convert]::FromBase64String($env:SIGN_PFX_BASE64))
+          $signtool = Get-ChildItem "${env:ProgramFiles(x86)}\Windows Kits\10\bin\*\x64\signtool.exe" | Sort-Object FullName | Select-Object -Last 1
+          Get-ChildItem dist\*-setup.exe | ForEach-Object {
+            & $signtool.FullName sign /f $pfx /p $env:SIGN_PFX_PASSWORD /fd SHA256 /tr http://timestamp.digicert.com /td SHA256 $_.FullName
+            if ($LASTEXITCODE -ne 0) { exit 1 }
+          }
+          Remove-Item $pfx
+      - name: SBOM (CycloneDX from the lock file)
+        shell: bash
+        run: |
+          uv export --locked --extra gui --no-dev --format requirements-txt > dist/requirements.lock.txt
+          uvx --from cyclonedx-bom cyclonedx-py requirements dist/requirements.lock.txt --output-format JSON -o dist/sbom.cdx.json
+      - name: Checksums
+        shell: bash
+        run: cd dist && sha256sum ./*.zip ./*.exe ./sbom.cdx.json > SHA256SUMS && cat SHA256SUMS
+      - uses: actions/attest-build-provenance@v2
+        with:
+          subject-path: |
+            dist/*.zip
+            dist/*.exe
+      - uses: actions/upload-artifact@v4
+        with:
+          name: release-${{ steps.v.outputs.version }}
+          path: |
+            dist/*.zip
+            dist/*.exe
+            dist/SHA256SUMS
+            dist/sbom.cdx.json
+      - name: Attach to GitHub Release
+        if: env.TAG != ''
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release upload "$TAG" dist/*.zip dist/*.exe dist/SHA256SUMS dist/sbom.cdx.json --clobber

@@ -1,0 +1,47 @@
+{
+  "skill_name": "rakvor-tool-forge",
+  "evals": [
+    {
+      "id": 1,
+      "name": "es-evidence-inventory-client",
+      "prompt": "Necesito que me crees el proyecto de una herramienta nueva para Rakvor: los clientes nos entregan carpetas con evidencia (a veces 50.000 archivos) y queremos inventariarlas: hash de cada archivo, detectar duplicados y archivos cuya extensión no coincide con el contenido real. El resultado se entrega al cliente y puede terminar en un juicio en Colombia, así que tiene que ser auditable. Debe tener CLI y GUI para Windows 10/11. Llámala rv-evidence-inventory. El plan ya está aprobado y no estaré disponible para preguntas: toma decisiones razonables y construye todo hasta el final.",
+      "expected_output": "Rust (Profile A) project rv-evidence-inventory: core + CLI + GUI, findings DUPLICATE and EXTENSION_MISMATCH, ADR choosing Rust with client weights, full forensic/report/CI contract, validator passing.",
+      "files": [],
+      "expectations": [
+        "The project passes validate_project.py --run (all contract checks)",
+        "The project uses Rust (Profile A) and docs/adr/0001-language.md explains the choice",
+        "Findings for duplicates and extension/content mismatch exist with shows / does_not_prove in en, es and fr",
+        "The CLI refuses three hash algorithms with exit code 2",
+        "Each item gets a separate technical and customer report in HTML, PDF and JSON"
+      ]
+    },
+    {
+      "id": 2,
+      "name": "en-whatsapp-rsmf-internal",
+      "prompt": "We keep converting WhatsApp chat exports (the .txt you get from 'Export chat', sometimes zipped with media) into RSMF so we can load them into Relativity. I want a proper internal tool for the team: bulk conversion of a folder of exports, a CLI and a simple Windows GUI, logs we can show if anyone questions the conversion. It's internal, we change it often, and the team mostly knows Python. Call it rv-whatsapp-rsmf. Consider the plan approved and don't wait for me — make sensible assumptions and build the whole thing.",
+      "expected_output": "Python (Profile B) project rv-whatsapp-rsmf that parses WhatsApp TXT exports and writes RSMF files, logs each conversion with output digests, CLI + PySide6 GUI, full contract, validator passing.",
+      "files": [],
+      "expectations": [
+        "The project passes validate_project.py --run (all contract checks)",
+        "The project uses Python (Profile B) and the ADR explains why (internal tool, team velocity, libraries)",
+        "A sample run converts the synthetic WhatsApp export(s) in examples/ into RSMF output files",
+        "Every RSMF output file's digest is recorded in the audit log",
+        "examples/ contains only synthetic chat data (no real phone numbers or names of real people)"
+      ]
+    },
+    {
+      "id": 3,
+      "name": "fr-jpeg-carving-performance",
+      "prompt": "On a besoin d'un outil pour récupérer (carving) les JPEG supprimés dans des images disque brutes (.dd/.raw) de 200 à 500 Go. Les experts travaillent sur des portables Windows 10/11 avec 8 Go de RAM, parfois dans des VM sans carte graphique. Il faut une CLI et une interface graphique, et des rapports pour le client et pour le tribunal en France. Nom : rv-jpeg-carver. Le plan est validé et je ne pourrai pas répondre aux questions : prends des décisions raisonnables et construis tout jusqu'au bout.",
+      "expected_output": "Rust (Profile A, performance preset) project rv-jpeg-carver that streams raw images in chunks (constant memory), carves JPEGs (SOI/EOI), hashes and logs each carved file, no hand-written assembly, GUI with wgpu, full contract, validator passing.",
+      "files": [],
+      "expectations": [
+        "The project passes validate_project.py --run (all contract checks)",
+        "The project uses Rust and the ADR uses performance/hardware criteria",
+        "The carving reads the image in a streaming way (no whole-file reads of evidence in the core)",
+        "Carved JPEG files are written under the run's output folder and each one's digest is logged",
+        "No hand-written assembly anywhere in the project"
+      ]
+    }
+  ]
+}

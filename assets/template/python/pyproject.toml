@@ -1,0 +1,64 @@
+[project]
+name = "rv-hashinv"
+# Product version lives in src/rv_hashinv/__init__.py (release-please bumps it); dynamic so uv.lock never
+# changes on release and `uv sync --locked` keeps working.
+dynamic = ["version"]
+description = "Evidence inventory for digital forensics: dual hashing, hash-chained audit log, per-item technical and customer reports."
+readme = "README.md"
+license = "LicenseRef-Rakvor-Audit"
+license-files = ["LICENSE", "NOTICE"]
+authors = [{ name = "Rakvor" }]
+requires-python = ">=3.11"
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "Operating System :: Microsoft :: Windows :: Windows 10",
+    "Operating System :: Microsoft :: Windows :: Windows 11",
+    "Operating System :: POSIX :: Linux",
+    "Topic :: Security",
+]
+dependencies = [
+    "click>=8.1",
+    "rich>=13.7",
+    "blake3>=1.0",
+    "jinja2>=3.1",
+    "reportlab>=4.2",
+    "pyhanko>=0.25",
+]
+
+[project.optional-dependencies]
+gui = ["PySide6-Essentials>=6.7"]
+
+[project.scripts]
+rv-hashinv = "rv_hashinv.cli:main"
+
+[project.gui-scripts]
+rv-hashinv-gui = "rv_hashinv.gui.app:main"
+
+[dependency-groups]
+dev = ["pytest>=8", "jsonschema>=4.22", "ruff>=0.6"]
+build = ["nuitka>=2.4", "ordered-set>=4.1", "zstandard>=0.22"]
+
+[build-system]
+requires = ["hatchling>=1.25"]
+build-backend = "hatchling.build"
+
+[tool.hatch.version]
+path = "src/rv_hashinv/__init__.py"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/rv_hashinv"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q"
+
+[tool.ruff]
+line-length = 150
+src = ["src", "tests"]
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "B", "UP", "S"]
+ignore = ["S101", "S603", "S607", "S404"]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/*" = ["S106", "S105"]
