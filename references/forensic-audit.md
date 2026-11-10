@@ -118,6 +118,10 @@ truncation from the chain alone. It compares the end of the log with the records
   `openssl verify -crl_check -attime` recipe and the note that `-attime` also applies to the CRL's validity dates.
   `tests/fixtures/tsa-chains/make_chains.py` regenerates the chain fixtures and `expected.json` (an OpenSSL oracle);
   when you change trust.rs, change it in every tool repo and in the template together.
+  The Python profile implements the same rules in `core/trust.py` (`verify_token`, `validate_chain`, same
+  messages) and is graded by the same `tests/fixtures/tsa-chains` (copied byte for byte; `tests/test_tsa_chains.py`):
+  a rule change goes into both profiles and the shared fixtures in one change. Python's PDF signing (pyHanko on
+  `cryptography`, i.e. OpenSSL) already uses RSA blinding.
 - Limitation `TIMESTAMP_PROVES_EXISTENCE_ONLY`: the token proves the log existed at that time, not that it is true.
 
 ## Signed PDF reports

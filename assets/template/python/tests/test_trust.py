@@ -13,7 +13,15 @@ sys.path.insert(0, str(Path(__file__).parent))
 import fake_tsa  # noqa: E402
 from rv_hashinv.core import RunConfig, run  # noqa: E402
 from rv_hashinv.core.audit import AuditLog, heads, verify  # noqa: E402
-from rv_hashinv.core.trust import MAX_RESPONSE, TimestampError, request_timestamp, timestamp_head, verify_timestamps  # noqa: E402
+from rv_hashinv.core.trust import (  # noqa: E402
+    MAX_RESPONSE,
+    TimestampError,
+    load_ca_bundle,
+    request_timestamp,
+    timestamp_head,
+    verify_timestamps,
+    verify_timestamps_with,
+)
 from rv_hashinv.core.verify import verify_log  # noqa: E402
 
 
@@ -37,7 +45,7 @@ def test_timestamp_covers_chain_head_and_tamper_is_caught(tmp_path, sample, pki)
     assert s.timestamp["status"] == "ok"
     log = s.log_dir / "audit.jsonl"
     assert verify(log)[1] == []
-    assert verify_timestamps(s.log_dir, heads(log)) == []
+    assert verify_timestamps(log) == []
     meta = json.loads(next(s.log_dir.glob("timestamp-*.json")).read_text())
     assert heads(log)[meta["covers_seq"]] == meta["head"]
     v = verify_log(log)
@@ -52,7 +60,7 @@ def test_timestamp_covers_chain_head_and_tamper_is_caught(tmp_path, sample, pki)
     log.write_text(full, encoding="utf-8")
     tsr = s.log_dir / meta["file"]
     tsr.write_bytes(tsr.read_bytes()[:-1] + b"\x00")
-    assert verify_timestamps(s.log_dir, heads(log))
+    assert verify_timestamps(log)
     assert verify_log(log).problems
 
 
@@ -66,7 +74,95 @@ def test_offline_tsa_is_pending_then_added_later(tmp_path, sample, pki):
     audit.record("timestamp_obtained", ts.file, ts.to_json())
     audit.close()
     log = s.log_dir / "audit.jsonl"
-    assert verify(log)[1] == [] and verify_timestamps(s.log_dir, heads(log)) == []
+    assert verify(log)[1] == [] and verify_timestamps(log) == []
+
+
+def test_tsa_signature_is_checked_and_the_chain_only_with_tsa_ca(tmp_path, sample, pki):
+    d, url = pki
+    s = _run(tmp_path, sample, tsa_url=url)
+    log = s.log_dir / "audit.jsonl"
+    plain = verify_log(log)
+    assert plain.problems == []
+    assert any("TSA signature valid (signer: " in t and "Rakvor TEST TSA" in t and "chain not checked" in t for t in plain.timestamps)
+    chained = verify_log(log, load_ca_bundle(d / "ca.pem"))
+    assert chained.problems == []
+    assert any("chain validated to " in t and "Rakvor TEST CA (revocation not checked)" in t for t in chained.timestamps)
+    # A CA that did not issue the TSA certificate: the chain is not trusted.
+    other = tmp_path / "other"
+    fake_tsa.make_certs(other)
+    wrong = verify_log(log, load_ca_bundle(other / "ca.pem"))
+    assert any("TSA certificate chain not validated: no trusted issuer" in p for p in wrong.problems), wrong.problems
+
+
+def _tamper_signature(der: bytes) -> bytes:
+    """Flips one bit of the SignerInfo signature value, keeping the file parseable."""
+    from asn1crypto import tsp
+
+    resp = tsp.TimeStampResp.load(der)
+    si = resp["time_stamp_token"]["content"]["signer_infos"][0]
+    sig = bytearray(si["signature"].native)
+    sig[len(sig) // 2] ^= 0x01
+    i = der.index(si["signature"].native)
+    return der[:i] + bytes(sig) + der[i + len(sig) :]
+
+
+def test_forged_token_is_rejected_even_when_its_file_digest_is_updated(tmp_path, sample, pki):
+    _, url = pki
+    s = _run(tmp_path, sample, tsa_url=url)
+    log = s.log_dir / "audit.jsonl"
+    meta_path = next(s.log_dir.glob("timestamp-*.json"))
+    meta = json.loads(meta_path.read_text())
+    tsr = s.log_dir / meta["file"]
+    forged = _tamper_signature(tsr.read_bytes())
+    tsr.write_bytes(forged)
+    # The recorded digest no longer matches: the altered file is caught first ...
+    assert any("missing or altered" in p for p in verify_timestamps(log))
+    # ... and an attacker who also rewrites the metadata and the log entry is caught by the TSA signature.
+    import hashlib
+
+    new = hashlib.sha256(forged).hexdigest()
+    meta_path.write_text(json.dumps({**meta, "token_sha256": new}), encoding="utf-8")
+    lines = log.read_text("utf-8").splitlines(keepends=True)
+    log.write_text("".join(x.replace(meta["token_sha256"], new) for x in lines), encoding="utf-8")
+    problems = verify_timestamps_with(log, None).problems
+    assert any("TSA signature value does not verify" in p for p in problems), problems
+
+
+def test_missing_metadata_and_unrecorded_tokens_are_problems(tmp_path, sample, pki):
+    _, url = pki
+    s = _run(tmp_path, sample, tsa_url=url)
+    log = s.log_dir / "audit.jsonl"
+    meta_path = next(s.log_dir.glob("timestamp-*.json"))
+    meta_text = meta_path.read_text()
+    meta_path.unlink()
+    assert any("its metadata" in p and "missing or unreadable" in p for p in verify_timestamps(log))
+    meta_path.write_text(meta_text)
+    stray = s.log_dir / "timestamp-99999.tsr"
+    stray.write_bytes(b"\x30\x00")
+    assert any("neither the audit log nor a metadata file records" in p for p in verify_timestamps(log))
+    stray.unlink()
+    assert verify_timestamps(log) == []
+
+
+def test_verify_log_cli_tsa_ca_exit_codes(tmp_path, sample, pki):
+    from click.testing import CliRunner
+
+    from rv_hashinv.cli import cli
+
+    d, url = pki
+    s = _run(tmp_path, sample, tsa_url=url)
+    r = CliRunner()
+    ok = r.invoke(cli, ["verify-log", str(s.log_dir), "--tsa-ca", str(d / "ca.pem")])
+    assert ok.exit_code == 0, ok.output
+    assert "chain validated to" in ok.output
+    plain = r.invoke(cli, ["verify-log", str(s.log_dir)])
+    assert plain.exit_code == 0 and "chain not checked" in plain.output
+    unreadable = r.invoke(cli, ["verify-log", str(s.log_dir), "--tsa-ca", str(tmp_path / "nope.pem")])
+    assert unreadable.exit_code == 1
+    other = tmp_path / "other"
+    fake_tsa.make_certs(other)
+    untrusted = r.invoke(cli, ["verify-log", str(s.log_dir), "--tsa-ca", str(other / "ca.pem")])
+    assert untrusted.exit_code == 3 and "BROKEN" in untrusted.output
 
 
 def test_request_rejects_unreachable_tsa():

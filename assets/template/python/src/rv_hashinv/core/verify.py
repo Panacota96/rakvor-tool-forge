@@ -13,15 +13,13 @@ Same rules and wording as the Rust profile (src/core/src/verify.rs).
 
 from __future__ import annotations
 
-import hashlib
 import json
 from dataclasses import dataclass, field
 from pathlib import Path
 
-from .audit import heads
 from .audit import verify as verify_chain
 from .inputs import normalize_path
-from .trust import verify_timestamps
+from .trust import verify_timestamps_with
 
 NO_ANCHOR = "truncation not detectable without a timestamp or case record"
 CASE_FILE, CASE_LOG = "case.json", "case-log.jsonl"
@@ -65,8 +63,9 @@ def _entries_count(n: int) -> str:
     return "1 entry" if n == 1 else f"{n} entries"
 
 
-def verify_log(path: Path) -> LogVerification:
-    """Verifies path (an audit.jsonl). Raises OSError only when the log cannot be opened."""
+def verify_log(path: Path, tsa_anchors: list | None = None) -> LogVerification:
+    """Verifies path (an audit.jsonl). tsa_anchors: CA bundle (trust.load_ca_bundle) to also validate each
+    timestamp's TSA certificate chain at genTime. Raises OSError only when the log cannot be opened."""
     path = Path(path)
     directory = path.parent
     v = LogVerification(path)
@@ -76,28 +75,14 @@ def verify_log(path: Path) -> LogVerification:
         return v
     v.entries = n
     entries = _entries(path)
-    v.problems += verify_timestamps(directory, heads(path))
-
-    # Every timestamp the log says it obtained must still be next to it (deleting the token files is how a
-    # truncation below the last timestamp would be hidden).
-    for e in (e for e in entries if e.get("action") == "timestamp_obtained"):
-        d = e.get("details") or {}
-        file, want = d.get("file") or "", d.get("token_sha256") or ""
-        got = hashlib.sha256((directory / file).read_bytes()).hexdigest() if file and (directory / file).is_file() else ""
-        if not file or got != want:
-            v.problems.append(f"entry #{e.get('seq')} records timestamp token {file or '?'}, which is missing or altered")
-
-    anchors: list[tuple[int, str]] = []
-    for meta_path in sorted(directory.glob("timestamp-*.json")):
-        try:
-            m = json.loads(meta_path.read_text(encoding="utf-8"))
-        except (OSError, ValueError):
-            continue
-        seq = m.get("covers_seq") if isinstance(m.get("covers_seq"), int) else 0
-        v.timestamps.append(f"timestamp {m.get('gen_time', '?')} by {m.get('tsa', '?')} covers entry #{m.get('covers_seq')}")
-        # seq > n is reported by verify_timestamps ("truncated: ... which is not in the log").
-        if 0 < seq <= n:
-            anchors.append((seq, f"the RFC 3161 timestamp ({meta_path.name})"))
+    # Tokens are driven by the log's timestamp_obtained entries (a recorded token whose .tsr or metadata is
+    # missing is a problem, never a skipped check); every token's TSA signature is verified.
+    tokens = verify_timestamps_with(path, tsa_anchors)
+    v.problems += tokens.problems
+    # A covered entry beyond the log's end is reported by verify_timestamps_with ("truncated: ... not in the log").
+    anchors: list[tuple[int, str]] = [(seq, f"the RFC 3161 timestamp ({file.replace('.tsr', '.json')})") for seq, file in tokens.covers if seq <= n]
+    # One line per token: what its TSA signature and chain check established, when every token verified.
+    v.timestamps = tokens.tokens if len(tokens.tokens) == len(tokens.listed) else tokens.listed
 
     case = case_of_log_dir(directory)
     if case is not None:

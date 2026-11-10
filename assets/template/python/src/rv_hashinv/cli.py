@@ -31,7 +31,7 @@ from .core.envinfo import os_user
 from .core.hashing import ALGORITHMS, KNOWN_ANSWERS, parse, self_test, validate_selection
 from .core.i18n import parse_langs
 from .core.timeutil import human_duration
-from .core.trust import DEFAULT_TSA, TimestampError, timestamp_head
+from .core.trust import DEFAULT_TSA, TimestampError, load_ca_bundle, timestamp_head
 from .core.verify import verify_log as verify_audit_log
 
 EXIT_OK, EXIT_ERROR, EXIT_USAGE, EXIT_FINDINGS, EXIT_CANCELLED = 0, 1, 2, 3, 130
@@ -446,8 +446,17 @@ def scan(
     epilog="\b\nCHECKS:\n"
     "  - every entry links to the previous one (hash chain): an edited, deleted or re-ordered entry\n"
     "    breaks it;\n"
-    "  - every timestamp token (timestamp-<SEQ>.tsr) covers the hash of the entry it names, and every\n"
-    "    timestamp_obtained entry still has its token file;\n"
+    "  - every timestamp token the log records (timestamp_obtained) is still next to it with its\n"
+    "    metadata (timestamp-<SEQ>.tsr with the recorded SHA-256, timestamp-<SEQ>.json agreeing): a\n"
+    "    missing file is a problem, never a skipped check; a token file no entry records is checked\n"
+    "    too. Every token covers the hash of the entry it names;\n"
+    "  - the TSA's CMS signature of every token: signer certificate in the token, ESS\n"
+    "    signing-certificate binding, message digest over TSTInfo, RSA signature, and an extended key\n"
+    "    usage that is critical and only timeStamping (RFC 3161). With --tsa-ca, also the TSA\n"
+    "    certificate path up to that CA bundle at the token's genTime (every candidate issuer tried;\n"
+    "    CA flag, keyCertSign, pathLenConstraint, directoryName name constraints, no unsupported\n"
+    '    critical extension); without it the output says "chain not checked". Revocation is\n'
+    "    never checked: establish it from CRL/OCSP evidence covering genTime;\n"
     "  - truncation: a chain alone cannot show that entries were removed from its end. The log must\n"
     "    still contain the entry covered by its RFC 3161 timestamp (covers_seq) and, for a run inside\n"
     "    a case folder (<CASE>/runs/<TOOL>/<RUN-ID>/logs), end with the audit head that the case log\n"
@@ -456,22 +465,42 @@ def scan(
     '    "truncation not detectable without a timestamp or case record".\n\n'
     "\b\nEXAMPLES:\n  rv-hashinv verify-log rakvor-out/logs/20261019T101500Z-a1b2c3/audit.jsonl\n"
     "  rv-hashinv verify-log rakvor-out/logs/20261019T101500Z-a1b2c3\n"
-    "  rv-hashinv verify-log E:\\CASE-014\\runs\\rv-hashinv\\20261019T101500Z-a1b2c3\\logs\n\n\b\nEXIT CODES:\n"
-    "  0  The chain is intact and agrees with its timestamps and case record (if any).\n  1  The log cannot be read.\n"
+    "  rv-hashinv verify-log E:\\CASE-014\\runs\\rv-hashinv\\20261019T101500Z-a1b2c3\\logs\n"
+    "  rv-hashinv verify-log rakvor-out/logs/20261019T101500Z-a1b2c3 --tsa-ca digicert-tsa-roots.pem\n\n\b\nEXIT CODES:\n"
+    "  0  The chain is intact and agrees with its timestamps and case record (if any).\n"
+    "  1  The log or the --tsa-ca file cannot be read.\n"
     "  3  The chain is broken (an entry was edited, deleted or re-ordered), a timestamp does not\n"
-    "     match, or the log is shorter than its timestamp or case record says (truncated).",
+    "     match or does not verify (altered token, invalid TSA signature, chain not trusted by\n"
+    "     --tsa-ca), or the log is shorter than its timestamp or case record says (truncated).",
 )
 @click.argument("log", type=click.Path(path_type=Path), metavar="LOG")
+@click.option(
+    "--tsa-ca",
+    "tsa_ca",
+    type=click.Path(path_type=Path),
+    metavar="PEM",
+    default=None,
+    help="CA bundle (PEM, or one DER certificate) to validate each timestamp's TSA certificate chain at the "
+    "token's genTime. Default: not set (the TSA signature is checked, the chain is not). "
+    "Example: --tsa-ca C:\\certs\\tsa-roots.pem",
+)
 @click.pass_context
-def verify_log(ctx, log: Path) -> None:
+def verify_log(ctx, log: Path, tsa_ca: Path | None) -> None:
     """Verify an audit log (audit.jsonl): edited, deleted or re-ordered entries, and truncation.
 
     LOG is the path to audit.jsonl, or to the run's log folder that contains it.
     Example: rakvor-out/logs/20261019T101500Z-a1b2c3
     """
     path = log / "audit.jsonl" if log.is_dir() else log
+    anchors = None
+    if tsa_ca is not None:
+        try:
+            anchors = load_ca_bundle(tsa_ca)
+        except ValueError as e:
+            click.echo(f"error: {e}", err=True)
+            ctx.exit(EXIT_ERROR)
     try:
-        v = verify_audit_log(path)
+        v = verify_audit_log(path, anchors)
     except OSError as e:
         click.echo(f"error: cannot open {path}: {e}", err=True)
         ctx.exit(EXIT_ERROR)
@@ -496,7 +525,8 @@ def verify_log(ctx, log: Path) -> None:
     "  - case-log.jsonl is an intact hash chain starting with case_created; case.json is unchanged;\n"
     "  - evidence/registry.json has the SHA-256 recorded at the last registry change;\n"
     "  - every run announced in the case log has an intact audit.jsonl (and valid timestamp\n"
-    "    tokens), its case_linked entry points to its run_started entry, and the audit head\n"
+    "    tokens: imprint and TSA signature; the TSA chain is not checked, use verify-log\n"
+    "    --tsa-ca), its case_linked entry points to its run_started entry, and the audit head\n"
     "    recorded at run_finished is its final entry (only timestamp_obtained may follow);\n"
     "  - with --rehash: every registered item still reachable at its registered path is read again\n"
     "    and its digests are compared with the registry (the latest registration of a path).\n\n"

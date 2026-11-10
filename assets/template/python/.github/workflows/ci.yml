@@ -26,6 +26,13 @@ jobs:
       - run: uv sync --locked
       - run: uv run ruff format --check src tests
       - run: uv run ruff check src tests
+      # Counterpart of the Rust profile's `cargo deny check advisories`: every locked package (runtime, GUI, dev,
+      # build) against the PyPI/OSV advisory database. A new advisory fails the build; an exception is
+      # `--ignore-vuln <ID>` here with a comment saying why it does not apply and when it is revisited.
+      - name: Dependency advisories (pip-audit against uv.lock)
+        run: |
+          uv export --locked --format requirements-txt --all-extras --all-groups --no-emit-project --quiet > "$RUNNER_TEMP/requirements.txt"
+          uvx pip-audit==2.10.1 --disable-pip --require-hashes -r "$RUNNER_TEMP/requirements.txt" --progress-spinner off
       - name: actionlint
         run: |
           bash <(curl -sSfL https://raw.githubusercontent.com/rhysd/actionlint/v1.7.7/scripts/download-actionlint.bash) 1.7.7

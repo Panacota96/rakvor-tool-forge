@@ -602,7 +602,8 @@ registered more than once (its content changed between intakes, so it received a
 latest registration; the earlier ids are listed as superseded. A difference is a problem (exit 3); an unreachable
 or unreadable file is a warning, because evidence copies often live on another workstation.
 
-What `verify-case` does **not** do: verify TSA signatures (B8), or prove that the registry's first content equals
+What `verify-case` does **not** do: validate the TSA certificate chain (it checks each token's TSA signature;
+the chain needs `verify-log --tsa-ca`, B8), or prove that the registry's first content equals
 the original source.
 
 ## B8 RFC 3161 trusted timestamp
@@ -645,12 +646,35 @@ from the worked example of B6, example nonce, encoded with `asn1crypto` as the t
   `timestamp-<NNNNN>.json` (tsa, gen_time, covers_seq, head, token_sha256, file).
 - Offline → `timestamp_pending` and the run completes; `rv-hashinv timestamp <log>` later re-verifies the chain and
   appends `timestamp_obtained` for the then-current head (earlier entries are never rewritten).
-- `verify-log` and `verify-case` re-check: that entry `covers_seq` is still in the log (otherwise: `truncated`), the
-  `.tsr` SHA-256 against `token_sha256`, the TSA status, and that the imprint equals the `entry_hash` of
-  `covers_seq`. They do **not** verify the TSA's signature, certificate chain,
-  policy OID or accuracy. Do that with OpenSSL against the TSA's published chain
-  ([usage.md](usage.md#6-timestamps)) before relying on the time in court (gap G18):
-  `openssl ts -verify -digest <head> -in timestamp-<N>.tsr -CAfile <TSA root> -untrusted <TSA certificates>`.
+- `verify-log` and `verify-case` re-check every token the audit log records (`timestamp_obtained`; a recorded token
+  whose `.tsr` or `.json` is missing, or whose metadata disagrees with the entry, is a problem — deleting the
+  metadata file does not skip the checks) and any token file next to the log that no entry records: that entry
+  `covers_seq` is still in the log (otherwise: `truncated`), the `.tsr` SHA-256 against `token_sha256`, the TSA status, and that the imprint equals the `entry_hash` of
+  `covers_seq`. They also verify the TSA's **CMS signature** ([trust.py](../src/rv_hashinv/core/trust.py) `verify_token`, the same rules as
+  the Rust profile's `trust.rs` used by RV Hub, rv-pdfauth and rv-imgauth): the content type is `id-ct-TSTInfo`; there is exactly one SignerInfo and its
+  certificate is in the token; the signed attributes carry content-type, a message-digest equal to the digest of
+  the TSTInfo, and an ESS signing-certificate (v1 or v2) matching that certificate; the RSA PKCS#1 v1.5 signature
+  over the signed attributes verifies; and the certificate's extended key usage is critical and contains only
+  `id-kp-timeStamping` (RFC 3161 §2.3, as rv-certcheck and OpenSSL's `timestampsign` purpose). Any failure ("signature value does not verify") fails the log (exit 3).
+- The **TSA certificate chain** is validated only by `verify-log --tsa-ca <CA bundle>` (PEM or DER): a path from
+  the TSA certificate, through the certificates in the token, to one of the bundle's certificates, trying every
+  candidate issuer and anchor (cross-signed intermediates, renewed anchors, self-issued key-rollover
+  intermediates; at most 8 deep, no loops) and accepting a path only if (an RFC 5280 subset, `trust.py` `_check_path`):
+  every RSA signature verifies and every certificate is valid at `genTime`; every intermediate has
+  `cA=TRUE` (an anchor too, or is v1 / has keyCertSign); an issuer with keyUsage has `keyCertSign`; no
+  `pathLenConstraint` is exceeded (self-issued certificates not counted); directoryName name constraints hold
+  (other name forms are not evaluated: a path carrying such names under such a constraint is rejected); and no
+  certificate has an unsupported critical extension (policyConstraints, policyMappings and inhibitAnyPolicy
+  included: policy processing is not implemented, such chains fail closed). 34 fixture chains
+  (`tests/fixtures/tsa-chains`) pin these rules, each cross-checked with `openssl verify -purpose timestampsign`. Without it the output says
+  "chain not checked": the token is shown to be signed by the certificate it carries, not that this certificate
+  belongs to a TSA you trust. **Revocation (CRL/OCSP), policy OID and accuracy are never checked**, and only RSA
+  signers are supported (an ECDSA token fails as "signature not checked"). Revocation must be established
+  separately, from CRL/OCSP evidence that covers `genTime`, before relying on the time in court (gap G18,
+  [usage.md](usage.md#6-timestamps)). Independent signature/chain check of the test token (no revocation check:
+  no CRL is supplied and OpenSSL does not query OCSP):
+  `openssl ts -verify -digest 53b0de42…a91a61 -in timestamp-00018.tsr -CAfile ca.pem -untrusted tsa.pem` →
+  `Verification: OK`.
 - The default TSA URL is plain HTTP; integrity rests on the TSA's signature, which is why the OpenSSL check
   matters. eIDAS qualified status depends on the TSA chosen ([admissibility.md](admissibility.md)).
 

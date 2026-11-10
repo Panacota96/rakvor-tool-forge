@@ -21,7 +21,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
-from .audit import GENESIS, build_entry, heads
+from .audit import GENESIS, build_entry
 from .audit import verify as verify_chain
 from .hashing import ALGORITHMS, hash_bytes, hash_stream
 from .inputs import normalize_path  # noqa: F401 - re-exported: the registry stores this form
@@ -585,7 +585,7 @@ def verify_case(directory: Path) -> CaseVerification:
                 v.problems.append(f"run {rid}: case_linked names another case")
             if linked["details"].get("case_log_head_at_start") != started_hash:
                 v.problems.append(f"run {rid}: case_linked does not point to its run_started entry in the case log")
-        v.problems += [f"run {rid}: {p}" for p in verify_timestamps(log_dir, heads(audit_path))]
+        v.problems += [f"run {rid}: {p}" for p in verify_timestamps(audit_path)]
         if fin is None:
             v.warnings.append(f"run {rid}: no run_finished in the case log (still running, or interrupted)")
             continue

@@ -197,13 +197,25 @@ Usage: rv-hashinv verify-log [OPTIONS] LOG
   out/logs/20261019T101500Z-a1b2c3
 
 Options:
-  --help  Show this message and exit.
+  --tsa-ca PEM  CA bundle (PEM, or one DER certificate) to validate each timestamp's TSA certificate
+                chain at the token's genTime. Default: not set (the TSA signature is checked, the
+                chain is not). Example: --tsa-ca C:\certs\tsa-roots.pem
+  --help        Show this message and exit.
 
   CHECKS:
     - every entry links to the previous one (hash chain): an edited, deleted or re-ordered entry
       breaks it;
-    - every timestamp token (timestamp-<SEQ>.tsr) covers the hash of the entry it names, and every
-      timestamp_obtained entry still has its token file;
+    - every timestamp token the log records (timestamp_obtained) is still next to it with its
+      metadata (timestamp-<SEQ>.tsr with the recorded SHA-256, timestamp-<SEQ>.json agreeing): a
+      missing file is a problem, never a skipped check; a token file no entry records is checked
+      too. Every token covers the hash of the entry it names;
+    - the TSA's CMS signature of every token: signer certificate in the token, ESS
+      signing-certificate binding, message digest over TSTInfo, RSA signature, and an extended key
+      usage that is critical and only timeStamping (RFC 3161). With --tsa-ca, also the TSA
+      certificate path up to that CA bundle at the token's genTime (every candidate issuer tried;
+      CA flag, keyCertSign, pathLenConstraint, directoryName name constraints, no unsupported
+      critical extension); without it the output says "chain not checked". Revocation is
+      never checked: establish it from CRL/OCSP evidence covering genTime;
     - truncation: a chain alone cannot show that entries were removed from its end. The log must
       still contain the entry covered by its RFC 3161 timestamp (covers_seq) and, for a run inside
       a case folder (<CASE>/runs/<TOOL>/<RUN-ID>/logs), end with the audit head that the case log
@@ -215,12 +227,14 @@ Options:
     rv-hashinv verify-log rakvor-out/logs/20261019T101500Z-a1b2c3/audit.jsonl
     rv-hashinv verify-log rakvor-out/logs/20261019T101500Z-a1b2c3
     rv-hashinv verify-log E:\CASE-014\runs\rv-hashinv\20261019T101500Z-a1b2c3\logs
+    rv-hashinv verify-log rakvor-out/logs/20261019T101500Z-a1b2c3 --tsa-ca digicert-tsa-roots.pem
 
   EXIT CODES:
     0  The chain is intact and agrees with its timestamps and case record (if any).
-    1  The log cannot be read.
+    1  The log or the --tsa-ca file cannot be read.
     3  The chain is broken (an entry was edited, deleted or re-ordered), a timestamp does not
-       match, or the log is shorter than its timestamp or case record says (truncated).
+       match or does not verify (altered token, invalid TSA signature, chain not trusted by
+       --tsa-ca), or the log is shorter than its timestamp or case record says (truncated).
 ```
 
 ## rv-hashinv timestamp
@@ -285,7 +299,8 @@ Options:
     - case-log.jsonl is an intact hash chain starting with case_created; case.json is unchanged;
     - evidence/registry.json has the SHA-256 recorded at the last registry change;
     - every run announced in the case log has an intact audit.jsonl (and valid timestamp
-      tokens), its case_linked entry points to its run_started entry, and the audit head
+      tokens: imprint and TSA signature; the TSA chain is not checked, use verify-log
+      --tsa-ca), its case_linked entry points to its run_started entry, and the audit head
       recorded at run_finished is its final entry (only timestamp_obtained may follow);
     - with --rehash: every registered item still reachable at its registered path is read again
       and its digests are compared with the registry (the latest registration of a path).

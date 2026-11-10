@@ -14,7 +14,7 @@ flowchart LR
 
 | Job | Steps |
 | --- | --- |
-| lint (ubuntu) | Rust: `cargo fmt --check`, `cargo deny check advisories licenses bans sources` (a new RustSec advisory fails the build; an exception goes in `deny.toml` with the reason it does not apply and when it is revisited), `cargo clippy --workspace --all-targets -D warnings`. Python: `ruff format --check`, `ruff check`. Both: actionlint (with shellcheck) |
+| lint (ubuntu) | Rust: `cargo fmt --check`, `cargo deny check advisories licenses bans sources` (a new RustSec advisory fails the build; an exception goes in `deny.toml` with the reason it does not apply and when it is revisited), `cargo clippy --workspace --all-targets -D warnings`. Python: `ruff format --check`, `ruff check`, and `pip-audit` over `uv export --locked --all-extras --all-groups` (hash-pinned; an exception is `--ignore-vuln <ID>` with a comment giving the reason and the revisit date). Python: `ruff format --check`, `ruff check`. Both: actionlint (with shellcheck) |
 | test (matrix ubuntu + windows; Python also 3.11 + 3.13) | full test suite incl. docs drift test, `self-test`, sample run, `tests/verify_chain.py`, `tests/validate_reports.py` |
 | build (windows) | Rust: release build of both exes, upload artifact. Python: Nuitka standalone smoke build + frozen `self-test` + `run.ps1` |
 
