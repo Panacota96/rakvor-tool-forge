@@ -14,13 +14,13 @@ logic while the forensic plumbing (audit chain, hashing, reports, CLI, GUI, CI) 
 ## Get the current forge first
 
 The scripts, references and templates live in **github.com/Panacota96/rakvor-tool-forge**; the copies bundled with
-this skill are an offline fallback. Before phase 1, fetch the pinned commit (forge v1.1.0; a commit, not a tag,
+this skill are an offline fallback. Before phase 1, fetch the pinned commit (forge v1.2.0; a commit, not a tag,
 because a tag can be moved) and use its files — `<forge>` below is that checkout, and `references/…` means
 `<forge>/references/…`:
 
 ```bash
 git init -q <tmp>/forge && git -C <tmp>/forge fetch -q --depth 1 \
-    https://github.com/Panacota96/rakvor-tool-forge b8487c8cbba7b1af572112a34c15b8d8ae0d60d6 \
+    https://github.com/Panacota96/rakvor-tool-forge 7c3a71ad601bf411a64c62aa9c237a787e54341f \
     && git -C <tmp>/forge checkout -q FETCH_HEAD
 ```
 
@@ -28,7 +28,9 @@ If the fetch fails (offline, no GitHub access), use the bundled copy as `<forge>
 forge v1.1.0: its Rust template lacks the hardened TSA verification in `src/core/src/trust.rs`, blinded RSA signing,
 `deny.toml` with advisory checks, the full installer AppId table, `describe` and `--case-dir` for RV Hub, and
 declares Rust 1.85. Copy `src/core/src/trust.rs`, `deny.toml` and `.github/workflows/ci.yml` from rv-hashinv before
-the first commit, then validate.
+the first commit, then validate. Its Python template checks only a token's file digest and imprint — not the TSA
+signature or chain (`verify-log --tsa-ca`) — and has no pip-audit step: prefer the Rust profile until the fetch
+works, or say so in the ADR.
 
 Every phase and every sub-agent prompt is written in **CRAFT** form — Context, Role, Action, Format, Target —
 because sub-agents start with no memory: ready-made prompts are in `references/craft.md`.
@@ -57,7 +59,7 @@ flowchart LR
 | Repo | README, CHANGELOG (Keep a Changelog), CONTRIBUTING, LICENSE (Rakvor source-auditable, `assets/licence/`), NOTICE with third-party licences, SECURITY, `deny.toml` (licence allow-list, sources, RustSec advisories), `src/ docs/ tests/ examples/`, ≥1 Mermaid diagram per docs page |
 | Toolkit | shared case folder (`references/case-folder.md`): `--case-dir`, `--evidence`, `verify-case [--rehash]`; the intake tool (rv-hashinv) registers evidence, every analysis tool re-verifies it against the registry and links its audit chain to the hash-chained case log |
 | Docs | README + architecture/forensic-audit/reports/usage-cli/usage-gui/development/case-folder **and** `docs/theory.md` (Part A plain language, Part B expert), `docs/admissibility.md` (Colombia, France/EU, ISO, US/UK, gaps, examiner checklist), `docs/installation.md`, `docs/usage.md` — English, Markdown + Mermaid, every claim matching the code |
-| CI/CD | tests on ubuntu + windows, lint, `cargo deny check advisories licenses bans sources`, docs drift, verifiers; release: portable zip + Inno Setup installer, SHA256SUMS, SBOM, build provenance; release-please + Conventional Commits |
+| CI/CD | tests on ubuntu + windows, lint, dependency advisories (`cargo deny check advisories licenses bans sources`; Python: `pip-audit` over the locked export), docs drift, verifiers; release: portable zip + Inno Setup installer, SHA256SUMS, SBOM, build provenance; release-please + Conventional Commits |
 
 ## Phase 0 — Intake
 
