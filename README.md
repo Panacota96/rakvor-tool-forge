@@ -2,7 +2,7 @@
 
 Source of the `rakvor-tool-forge` skill: the procedure, scripts and reference project templates that turn "we need a
 tool that does X" into a Rakvor DFIR tool that builds, passes its tests and meets the forensic contract from the
-first commit. `SKILL.md` is the procedure; this repository is where its files live, versioned and tagged.
+first commit. `SKILL.md` is the procedure; this repository is where its files live, versioned and pinned by commit.
 
 ```mermaid
 flowchart LR
@@ -16,7 +16,7 @@ flowchart LR
 
 | Path | What it is |
 | --- | --- |
-| `SKILL.md` | the procedure (phases 0–8); the saved skill clones a tag of this repo |
+| `SKILL.md` | the procedure (phases 0–8); the saved skill fetches a pinned commit of this repo |
 | `references/` | contracts and how-tos read by the phase agents |
 | `scripts/scaffold.py` | copies a template and renames it (fresh installer AppId, case role, `cargo fmt`) |
 | `scripts/validate_project.py` | the contract check (`--run --tests`, `--json`) |
@@ -26,10 +26,15 @@ flowchart LR
 | `assets/template/python` | Profile B reference project |
 | `evals/` | skill evals |
 
-## Using a tag
+## Using a pinned commit
+
+| Version | Commit |
+| --- | --- |
+| v1.1.0 | `b8487c8cbba7b1af572112a34c15b8d8ae0d60d6` |
 
 ```bash
-git clone --depth 1 --branch <tag> https://github.com/Panacota96/rakvor-tool-forge <tmp>/forge
+git init -q <tmp>/forge && git -C <tmp>/forge fetch -q --depth 1 https://github.com/Panacota96/rakvor-tool-forge <commit>
+git -C <tmp>/forge checkout -q FETCH_HEAD
 python <tmp>/forge/scripts/scaffold.py --profile rust --name rv-x --title "RV X" --description "…" --out <parent>
 python <tmp>/forge/scripts/validate_project.py <parent>/rv-x --run --tests
 ```
@@ -42,7 +47,8 @@ python <tmp>/forge/scripts/validate_project.py <parent>/rv-x --run --tests
    `.release-please-manifest.json` to 0.1.0 and keep the template's CHANGELOG).
 3. Scaffold a throwaway tool and run `validate_project.py --run --tests`, `cargo deny check`, `cargo clippy` and
    `cargo fmt --check` on it.
-4. `python scripts/pack_templates.py`, commit, tag (`vMAJOR.MINOR.PATCH`), and point `SKILL.md` at the new tag.
+4. `python scripts/pack_templates.py`, commit, push, add the version and commit to the table above, and point
+   `SKILL.md` ("Get the current forge first") at the new commit.
 
 The reference tool's licence and admissibility texts are drafts pending a lawyer's review. Templates contain no
 private keys: the signing root under `packaging/signing/` is the public certificate only.

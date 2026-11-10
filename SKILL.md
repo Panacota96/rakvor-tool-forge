@@ -14,15 +14,18 @@ logic while the forensic plumbing (audit chain, hashing, reports, CLI, GUI, CI) 
 ## Get the current forge first
 
 The scripts, references and templates live in **github.com/Panacota96/rakvor-tool-forge**; the copies bundled with
-this skill are an offline fallback. Before phase 1, clone the pinned tag and use its files — `<forge>` below is that
-clone, and `references/…` means `<forge>/references/…`:
+this skill are an offline fallback. Before phase 1, fetch the pinned commit (forge v1.1.0; a commit, not a tag,
+because a tag can be moved) and use its files — `<forge>` below is that checkout, and `references/…` means
+`<forge>/references/…`:
 
 ```bash
-git clone --depth 1 --branch v1.1.0 https://github.com/Panacota96/rakvor-tool-forge <tmp>/forge
+git init -q <tmp>/forge && git -C <tmp>/forge fetch -q --depth 1 \
+    https://github.com/Panacota96/rakvor-tool-forge b8487c8cbba7b1af572112a34c15b8d8ae0d60d6 \
+    && git -C <tmp>/forge checkout -q FETCH_HEAD
 ```
 
-If the clone fails (offline, no GitHub access), use the bundled copy as `<forge>` and tell the user it predates
-v1.1.0: its Rust template lacks the hardened TSA verification in `src/core/src/trust.rs`, blinded RSA signing,
+If the fetch fails (offline, no GitHub access), use the bundled copy as `<forge>` and tell the user it predates
+forge v1.1.0: its Rust template lacks the hardened TSA verification in `src/core/src/trust.rs`, blinded RSA signing,
 `deny.toml` with advisory checks, the full installer AppId table, `describe` and `--case-dir` for RV Hub, and
 declares Rust 1.85. Copy `src/core/src/trust.rs`, `deny.toml` and `.github/workflows/ci.yml` from rv-hashinv before
 the first commit, then validate.
@@ -248,5 +251,5 @@ Scripts: `scripts/scaffold.py` (new project), `scripts/decision_matrix.py` (ADR)
 (contract check, `--json` for graders). Templates: complete projects in `assets/template/<profile>` in the forge repo,
 also packed as `assets/template-<profile>.tar.gz.b64` for the skill bundle (`scaffold.py` unpacks them). The Rust
 reference project is rv-hashinv. To improve the forge, follow "Changing the forge" in the repo README: fix the
-reference, refresh the template, scaffold a throwaway tool and validate it, pack, commit, tag, and update the tag in
+reference, refresh the template, scaffold a throwaway tool and validate it, pack, commit, push, and update the pinned commit in
 "Get the current forge first".
