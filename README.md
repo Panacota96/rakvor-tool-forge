@@ -32,6 +32,7 @@ flowchart LR
 | --- | --- |
 | v1.1.0 | `b8487c8cbba7b1af572112a34c15b8d8ae0d60d6` |
 | v1.2.0 | `7c3a71ad601bf411a64c62aa9c237a787e54341f` (Python template: TSA signature and chain checks, pip-audit) |
+| v1.2.1 | `168f10da27a397a87f6109d89c4309433048867d` (Rust template: `deny.toml` allows IJG, identical to the tool repos) |
 
 ```bash
 git init -q <tmp>/forge && git -C <tmp>/forge fetch -q --depth 1 https://github.com/Panacota96/rakvor-tool-forge <commit>
