@@ -74,8 +74,15 @@ def decide(preset: str, weights: dict, scores: dict) -> dict:
             "max": 5 * sum(weights.values()), "note": note}
 
 
-def adr(tool: str, d: dict, overrides: list[str], context: str) -> str:
+def adr(tool: str, d: dict, overrides: list[str], context: str, council: bool = True) -> str:
     w, s, t = d["weights"], d["scores"], d["totals"]
+    deciders = ("language council (Rust, Python and C/assembly advocates + rebuttal round), approved by the project owner"
+                if council else "the project owner, without an advocate council (see Context)")
+    over_label = "Score overrides argued by the council" if council else "Score overrides (noted without an advocate council)"
+    unweighted = sorted({c for c in CRITERIA if not w[c] and any(CRITERIA[c] in o for o in overrides)})
+    if unweighted:
+        over_label = (f"{', '.join(CRITERIA[c] for c in unweighted)} has weight 0 in this preset, so overrides of it are "
+                      f"recorded but do not change the totals. {over_label}")
     rows = [f"| {label} | {w[c]} | " + " | ".join(str(s[lang][c]) for lang in LANGS) + " |" for c, label in CRITERIA.items() if w[c]]
     total_cells = " | ".join(f"**{t[lang]}**" if lang == d["winner"] else str(t[lang]) for lang in LANGS)
     pie = "\n".join(f'    "{LANGS[lang]}" : {t[lang]}' for lang in d["ranked"])
@@ -93,13 +100,13 @@ def adr(tool: str, d: dict, overrides: list[str], context: str) -> str:
 
 - Status: accepted
 - Date: {dt.date.today().isoformat()}
-- Deciders: language council (Rust, Python and C/assembly advocates + rebuttal round), approved by the project owner
+- Deciders: {deciders}
 
 ## Context
 
 {context or f"{tool} needs a CLI and a GUI on Windows 10/11, an auditable forensic trail and reports for clients."}
 
-Weight preset: **{d['preset']}**. Score overrides argued by the council:
+Weight preset: **{d['preset']}**. {over_label}:
 
 {over}
 
@@ -135,7 +142,13 @@ def main() -> int:
     ap.add_argument("--override", action="append", default=[], metavar='LANG.CRITERION=N:"reason"')
     ap.add_argument("--out", type=Path, help="write the ADR markdown here")
     ap.add_argument("--json", action="store_true")
+    ap.add_argument("--no-council", action="store_true",
+                    help="the owner chose without the advocate council; the ADR says so instead of claiming one")
     a = ap.parse_args()
+    # Windows consoles default to cp1252, which cannot print the summary's arrow: never crash after the ADR is written.
+    for stream in (sys.stdout, sys.stderr):
+        if hasattr(stream, "reconfigure"):
+            stream.reconfigure(encoding="utf-8", errors="replace")
     weights = dict(PRESETS[a.preset])
     for item in a.weight:
         k, v = item.split("=", 1)
@@ -154,10 +167,10 @@ def main() -> int:
         notes.append(f"{LANGS[lang]} · {CRITERIA[crit]}: {scores[lang][crit]} → {int(value)} ({reason.strip()})")
         scores[lang][crit] = max(1, min(5, int(value)))
     d = decide(a.preset, weights, scores)
-    text = adr(a.tool, d, notes, a.context)
+    text = adr(a.tool, d, notes, a.context, council=not a.no_council)
     if a.out:
         a.out.parent.mkdir(parents=True, exist_ok=True)
-        a.out.write_text(text, encoding="utf-8")
+        a.out.write_text(text, encoding="utf-8", newline="\n")
     if a.json:
         print(json.dumps({k: d[k] for k in ("preset", "totals", "ranked", "winner", "max", "note")} | {"overrides": notes}, indent=2))
     else:
