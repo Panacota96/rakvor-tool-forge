@@ -14,13 +14,13 @@ logic while the forensic plumbing (audit chain, hashing, reports, CLI, GUI, CI) 
 ## Get the current forge first
 
 The scripts, references and templates live in **github.com/Panacota96/rakvor-tool-forge**; the copies bundled with
-this skill are an offline fallback. Before phase 1, fetch the pinned commit (forge v1.2.0; a commit, not a tag,
+this skill are an offline fallback. Before phase 1, fetch the pinned commit (forge v1.2.1; a commit, not a tag,
 because a tag can be moved) and use its files — `<forge>` below is that checkout, and `references/…` means
 `<forge>/references/…`:
 
 ```bash
 git init -q <tmp>/forge && git -C <tmp>/forge fetch -q --depth 1 \
-    https://github.com/Panacota96/rakvor-tool-forge 7c3a71ad601bf411a64c62aa9c237a787e54341f \
+    https://github.com/Panacota96/rakvor-tool-forge 168f10da27a397a87f6109d89c4309433048867d \
     && git -C <tmp>/forge checkout -q FETCH_HEAD
 ```
 
