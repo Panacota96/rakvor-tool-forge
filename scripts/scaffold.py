@@ -23,6 +23,7 @@ from __future__ import annotations
 import argparse
 import datetime as dt
 import json
+import os
 import re
 import shutil
 import subprocess
@@ -143,11 +144,11 @@ def main() -> int:
         "[Semantic Versioning](https://semver.org/spec/v2.0.0.html). Entries are generated from\n"
         "[Conventional Commits](https://www.conventionalcommits.org/) by release-please and reviewed by a human.\n\n"
         f"## [Unreleased]\n\n### Added\n- Project scaffolded with rakvor-tool-forge ({a.profile} profile) on {today}.\n",
-        encoding="utf-8")
+        encoding="utf-8", newline="\n")
     forge = {"forge_version": 1, "profile": a.profile, "name": a.name, "module": module, "title": a.title, "run_command": "scan", "planned_command": a.command, "case_role": a.case_role,
              "created": today,
              "cli_command": (["cargo", "run", "-q", "-p", f"{a.name}-cli", "--"] if a.profile == "rust" else ["uv", "run", "-q", a.name])}
-    (dest / ".forge.json").write_text(json.dumps(forge, indent=2) + "\n", encoding="utf-8")
+    (dest / ".forge.json").write_text(json.dumps(forge, indent=2) + "\n", encoding="utf-8", newline="\n")
     # Case role constant (see references/case-folder.md): the reference tool is the intake tool.
     if a.case_role == "analysis":
         for f, old, new in ((dest / "src/core/src/lib.rs", "CaseRole::Intake;", "CaseRole::Analysis;"),
@@ -157,10 +158,13 @@ def main() -> int:
                 t = f.read_text(encoding="utf-8")
                 if old not in t:
                     sys.exit(f"cannot set case role in {f}")
-                f.write_text(t.replace(old, new, 1), encoding="utf-8")
+                f.write_text(t.replace(old, new, 1), encoding="utf-8", newline="")
     # Renaming changes identifier lengths, so lines can cross rustfmt's width: reformat, or CI's fmt check fails.
     if a.profile == "rust":
-        if shutil.which("cargo") is None or subprocess.run(["cargo", "fmt", "--all"], cwd=dest).returncode != 0:
+        # rustup installs cargo in CARGO_HOME/bin (default ~/.cargo/bin), which a fresh shell may not have on PATH.
+        cargo = shutil.which("cargo") or shutil.which(
+            "cargo", path=str(Path(os.environ.get("CARGO_HOME", Path.home() / ".cargo")) / "bin"))
+        if cargo is None or subprocess.run([cargo, "fmt", "--all"], cwd=dest).returncode != 0:
             print("warning: run `cargo fmt --all` in the new project before the first commit", file=sys.stderr)
     print(f"created {dest}  ({a.profile}; {edited} files adapted, {renamed} paths renamed)")
     print("next steps:")

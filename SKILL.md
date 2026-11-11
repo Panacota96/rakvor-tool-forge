@@ -99,6 +99,8 @@ GUI, CLI help, packaging/antivirus, auditability, team velocity, DFIR ecosystem,
    C hybrids only through `references/stack-hybrid.md`. Assembly is never hand-written; C only wraps existing libraries.
 
 No sub-agents available? Write the three advocate tables yourself, then the rebuttal — same format.
+The owner may also pick the language without a council (for example, Rust for a batch of planned tools): then pass
+`--no-council`, so the ADR names the owner as decider and labels the overrides as yours, never as argued by advocates.
 
 ## Phase 2 — Plan (approval gate)
 
@@ -213,6 +215,8 @@ and one next step. Do not paste file contents.
   `version.txt` (Rust) / dynamic hatch version (Python), crate/project versions fixed.
 - An unpinned compiler in CI brings new clippy lints you cannot see locally → `rust-toolchain.toml` pins it; locally
   use `RUSTUP_TOOLCHAIN=stable` when rustup cannot download the pinned name.
+- Clippy only in the Linux lint job never compiles `#[cfg(windows)]` code (file pickers, signature checks, registry), so
+  every tool failed `clippy -D warnings` on Windows unnoticed → the Windows test job runs clippy too.
 - CI job logs are often unreachable from the sandbox → test and clippy steps re-emit failures as `::error::`
   annotations; read them with the check-runs annotations API.
 - Tests that only pass on one OS: string paths with `/` (compare `Path` components), `iterdir()`/`read_dir` order
