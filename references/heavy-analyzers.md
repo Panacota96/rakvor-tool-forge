@@ -45,6 +45,22 @@ sequenceDiagram
 - Only the parent writes the audit log; a crash costs one item, never the run or the chain.
 - Unit tests use `Isolation::InProcess`; one CLI test injects a fault (debug-only env var) to prove the path.
 
+## Containers: one file, many items (mbox, archives, PST)
+
+- Register the container as evidence exactly as received; each inner item is a *derived* item named
+  `<container path>#<n>@<offset>`, with its byte range recorded (where it starts, how many bytes), and its reports
+  and custody form cite the container's digests, the index and the offsets, so anyone can re-extract it.
+- The independent verifier (`tests/verify_chain.py`) must re-hash a derived row from that byte range of the
+  container, not open the name as a file: rv-mailauth's CI failed on exactly this while every Rust test passed.
+- A cap on inner items (`--max-mbox-messages`) must still end the last listed item at the next boundary; dropping
+  the unlisted separators made the last item run to the end of the file, so its hashes covered several items.
+
+## Worker options stay small
+
+- A worker gets only what its own item needs on the command line. Passing a run-wide cache (rv-mailauth's DNS keys
+  fetched so far) grows `--opts` with the batch until it hits the OS limit (about 32 KB on Windows), and valid
+  items then fail with `spawn_failed`. Keep caches in the parent; select per item, or pass a file.
+
 ## Native libraries
 
 - Licence first: MIT/Apache/BSD only for Apache-2.0 deliverables. Excluded by default: MuPDF (AGPL), Poppler and

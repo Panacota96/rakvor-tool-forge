@@ -232,6 +232,10 @@ and one next step. Do not paste file contents.
   when it is revisited. Fixed versions may need a higher `rust-version`: bump it (the build toolchain is pinned anyway).
 - Signing through a library's plain `Signer` with rsa 0.9 → no RSA blinding (Marvin timing side channel). The
   examiner's key signs only through `BlindedSigningKey` in trust.rs.
+- A container format (mbox) registered item by item as `<file>#<n>@<offset>` broke the Python register check, which
+  opened that name as a file → derived items carry their byte range and the verifier re-hashes it
+  (`references/heavy-analyzers.md`, "Containers").
+- Passing a run-wide cache to every worker on the command line overflowed the Windows limit → per-item data only.
 - Two tools with the same installer AppId upgrade or uninstall each other → `scaffold.py` mints a fresh one and adds
   it to `RAKVOR_APP_IDS` (`src/cli/tests/packaging.rs`); add the new tool's AppId to that table in every tool repo.
 - Heuristics that "unwrap if it looks like DER" on random key bytes fail about 1 time in 65 536 → require the exact
