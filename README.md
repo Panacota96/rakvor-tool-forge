@@ -34,6 +34,7 @@ flowchart LR
 | v1.2.0 | `7c3a71ad601bf411a64c62aa9c237a787e54341f` (Python template: TSA signature and chain checks, pip-audit) |
 | v1.2.1 | `168f10da27a397a87f6109d89c4309433048867d` (Rust template: `deny.toml` allows IJG, identical to the tool repos) |
 | v1.3.0 | `40f55bb46e807a787e28937b17766708f52aed0e` (Windows clippy in CI, reproducible bundles, `--no-council`, scripts fixed for Windows) |
+| v1.3.1 | `01175f8e25d3a4396019d61b5808d5d065a6cc9f` (deny.toml notes mail-auth's verify-only rsa use; lessons from rv-mailauth: containers, small worker options, toolchain bumps) |
 
 ```bash
 git init -q <tmp>/forge && git -C <tmp>/forge fetch -q --depth 1 https://github.com/Panacota96/rakvor-tool-forge <commit>
