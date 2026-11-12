@@ -67,3 +67,11 @@ binaries with `cargo build --release --locked -p <name>-cli -p <name>-gui`.
 
 `src/core/src/trust.rs` holds all of it; `AuditLog::resume` powers the `timestamp` command. Avoid `gen` as an
 identifier (reserved in edition 2024).
+
+## When a dependency needs a newer compiler
+
+The pinned toolchain is per repository. If a crate needs a newer `rustc` (rv-mailauth: `mail-parser` 1.0, pulled in
+by `mail-auth`, needs 1.98), bump `rust-toolchain.toml` and `rust-version` in that repo deliberately, in its own
+`build:` commit, run clippy and the tests on the new compiler (lints change), and say so in the PR. Prefer a crate's
+pure-Rust feature over a C build (`mail-auth`: `rust-crypto` instead of the default `aws-lc-rs`), and run
+`cargo deny check` on the new tree before adopting it.
