@@ -48,10 +48,15 @@ sequenceDiagram
 ## Containers: one file, many items (mbox, archives, PST)
 
 - Register the container as evidence exactly as received; each inner item is a *derived* item named
-  `<container path>#<n>@<offset>`, with its byte range recorded (where it starts, how many bytes), and its reports
-  and custody form cite the container's digests, the index and the offsets, so anyone can re-extract it.
-- The independent verifier (`tests/verify_chain.py`) must re-hash a derived row from that byte range of the
-  container, not open the name as a file: rv-mailauth's CI failed on exactly this while every Rust test passed.
+  `<container path>#<n>@<offset>`, and its reports and custody form cite the container's digests, the index and how
+  to get the item back, so anyone can re-extract it.
+- **Untransformed slices** (an mbox message, a stored/uncompressed archive entry): record the byte range (where it
+  starts, how many bytes); the independent verifier (`tests/verify_chain.py`) re-hashes that range of the container
+  and must not open the name as a file. rv-mailauth's CI failed on exactly this while every Rust test passed.
+- **Transformed items** (deflated ZIP entries, PST blocks, anything decoded): the item's bytes are not a range of the
+  container, so a range hash proves nothing about them. Record reproducible extraction metadata instead (entry
+  name, method, the container's digest, the extracted item's digests) and have the verifier extract with an
+  independent library and hash the extracted bytes.
 - A cap on inner items (`--max-mbox-messages`) must still end the last listed item at the next boundary; dropping
   the unlisted separators made the last item run to the end of the file, so its hashes covered several items.
 
