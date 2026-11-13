@@ -46,7 +46,7 @@ python <tmp>/forge/scripts/validate_project.py <parent>/rv-x --run --tests
 ## Changing the forge
 
 1. Fix the reference tool (rv-hashinv) or the template, keeping its tests green. Code shared by every tool
-   (`src/core/src/trust.rs`) is byte-identical in every tool repo and in the template: change them together.
+   (`src/core/src/trust.rs`, `src/core/src/outputs.rs`) is byte-identical in every tool repo and in the template: change them together.
 2. Refresh `assets/template/<profile>` from the reference (`git archive`, then reset `version.txt` and
    `.release-please-manifest.json` to 0.1.0 and keep the template's CHANGELOG).
 3. Scaffold a throwaway tool and run `validate_project.py --run --tests`, `cargo deny check`, `cargo clippy` and

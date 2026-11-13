@@ -226,7 +226,11 @@ and one next step. Do not paste file contents.
 - Docs written from intent instead of code drift silently → the docs agent reads the code and lists every mismatch;
   fix the code or the doc before release.
 - Forking the shared `src/core/src/trust.rs` → tools verify timestamps differently and fixes miss some of them.
-  Keep it byte-identical across every tool repo and the template; change all of them in one go.
+  Keep it byte-identical across every tool repo and the template; change all of them in one go. Same for
+  `src/core/src/outputs.rs` (re-hash of the outputs an audit log records).
+- `verify-log` checking only the audit chain → a report edited after the run still verified (the chain vouches for
+  the recorded digests, not the files). `outputs.rs` re-hashes every recorded output; record every file a run
+  writes with its digests, in a shape `outputs.rs` knows.
 - CI that checks licences but not advisories → a yanked tokio and a timing-leaky dependency shipped unnoticed.
   `cargo deny check advisories licenses bans sources`; an exception in `deny.toml` says why it does not apply and
   when it is revisited. Fixed versions may need a higher `rust-version`: bump it (the build toolchain is pinned anyway).
