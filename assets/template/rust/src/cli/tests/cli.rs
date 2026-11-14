@@ -1178,3 +1178,169 @@ fn workflows_use_the_pinned_toolchain() {
         assert!(text.contains("rustup toolchain install"), "{}", wf);
     }
 }
+
+/// `verify-log` and the independent Python verifier (tests/verify_chain.py): exit code, outputs summary and
+/// output problem lines.
+fn both_verifiers(py: &str, logs: &Path) -> (i32, String, Vec<String>) {
+    let summary = |text: &str| {
+        text.lines()
+            .find_map(|l| l.trim().strip_prefix("outputs: "))
+            .unwrap_or("(none)")
+            .to_string()
+    };
+    let problems = |text: &str| {
+        let mut v: Vec<String> = text
+            .lines()
+            .filter(|l| l.starts_with("  - output "))
+            .map(str::to_string)
+            .collect();
+        v.sort();
+        v
+    };
+    let rs = bin().arg("verify-log").arg(logs).output().unwrap();
+    let oracle = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../tests/verify_chain.py");
+    let pyo = std::process::Command::new(py)
+        .arg(&oracle)
+        .arg(logs)
+        .output()
+        .unwrap();
+    let (rt, pt) = (
+        String::from_utf8_lossy(&rs.stdout).into_owned(),
+        String::from_utf8_lossy(&pyo.stdout).into_owned(),
+    );
+    assert_eq!(
+        rs.status.code(),
+        pyo.status.code(),
+        "rust:\n{rt}\npython:\n{pt}"
+    );
+    assert_eq!(summary(&rt), summary(&pt), "rust:\n{rt}\npython:\n{pt}");
+    assert_eq!(problems(&rt), problems(&pt), "rust:\n{rt}\npython:\n{pt}");
+    (rs.status.code().unwrap(), summary(&rt), problems(&rt))
+}
+
+/// Rewrites audit.jsonl from `entries`, renumbered and re-chained (an intact chain that records something else).
+fn rechain(logs: &Path, entries: Vec<serde_json::Map<String, serde_json::Value>>) {
+    let mut prev = rv_hashinv_core::audit::GENESIS.to_string();
+    let mut text = String::new();
+    for (i, mut m) in entries.into_iter().enumerate() {
+        m.insert("seq".into(), serde_json::json!(i + 1));
+        m.insert("prev_entry_hash".into(), serde_json::json!(prev));
+        m.remove("entry_hash");
+        prev = rv_hashinv_core::audit::entry_hash(&m);
+        m.insert("entry_hash".into(), serde_json::json!(prev));
+        text.push_str(&serde_json::to_string(&m).unwrap());
+        text.push('\n');
+    }
+    std::fs::write(logs.join("audit.jsonl"), text).unwrap();
+}
+
+#[test]
+fn python_verifier_agrees_with_verify_log_on_recorded_outputs() {
+    let py = std::env::var("RV_TEST_PYTHON").unwrap_or_else(|_| "python3".into());
+    if !std::process::Command::new(&py)
+        .args(["-c", "import blake3"])
+        .status()
+        .is_ok_and(|s| s.success())
+    {
+        eprintln!("skipping: {} has no blake3 (pip install blake3)", py);
+        return;
+    }
+    let out = tempfile::tempdir().unwrap();
+    bin()
+        .args(["scan", "-i"])
+        .arg(sample())
+        .args(["--hash", "sha256,blake3", "--progress", "none", "-o"])
+        .arg(out.path())
+        .assert()
+        .code(0);
+    let logs = only_dir(&out.path().join("logs"));
+    let reports = only_dir(&out.path().join("reports"));
+    let entries: Vec<serde_json::Map<String, serde_json::Value>> =
+        std::fs::read_to_string(logs.join("audit.jsonl"))
+            .unwrap()
+            .lines()
+            .map(|l| serde_json::from_str(l).unwrap())
+            .collect();
+    let sha = |b: &[u8]| rv_hashinv_core::hash::hash_bytes(b, HashAlgo::Sha256);
+
+    // Clean run.
+    let (code, summary, _) = both_verifiers(&py, &logs);
+    assert_eq!(code, 0, "{summary}");
+    assert!(summary.contains("recorded (blake3, sha256)"), "{summary}");
+
+    // Edited report, then a deleted one.
+    let stats = reports.join("statistics.json");
+    let saved = std::fs::read(&stats).unwrap();
+    std::fs::write(&stats, b"{\"edited\": true}\n").unwrap();
+    let (code, summary, problems) = both_verifiers(&py, &logs);
+    assert_eq!(code, 3);
+    assert!(summary.contains(", 1 changed"), "{summary}");
+    assert!(
+        problems[0].contains("output reports/statistics.json: blake3 differs"),
+        "{problems:?}"
+    );
+    std::fs::remove_file(&stats).unwrap();
+    let (code, summary, problems) = both_verifiers(&py, &logs);
+    assert_eq!(code, 3);
+    assert!(summary.contains(", 1 missing"), "{summary}");
+    assert!(
+        problems[0].contains("output reports/statistics.json: missing"),
+        "{problems:?}"
+    );
+    std::fs::write(&stats, &saved).unwrap();
+
+    // Path escapes recorded before run_finished (an intact chain): rejected, never read.
+    let outside = out.path().join("outside.json");
+    std::fs::write(&outside, b"x").unwrap();
+    let finish = entries
+        .iter()
+        .position(|e| e["action"] == "run_finished")
+        .unwrap();
+    let mut escaped = entries.clone();
+    for details in [
+        serde_json::json!({"files": {"../../outside.json": {"sha256": sha(b"x")}}}),
+        serde_json::json!({"files": {r"..\..\outside.json": {"sha256": sha(b"x")}}}),
+        serde_json::json!({"files": {"C:/outside.json": {"sha256": sha(b"x")}}}),
+    ] {
+        let mut m = serde_json::Map::new();
+        m.insert("action".into(), "statistics_report_written".into());
+        m.insert("details".into(), details);
+        escaped.insert(finish, m);
+    }
+    rechain(&logs, escaped);
+    let (code, summary, problems) = both_verifiers(&py, &logs);
+    assert_eq!(code, 3);
+    assert!(summary.contains(", 3 rejected"), "{summary}");
+    assert!(
+        problems
+            .iter()
+            .all(|p| p.contains("not a relative path inside the run folder")),
+        "{problems:?}"
+    );
+
+    // An entry after run_finished never replaces the run's own record: the edited report is still caught, and a
+    // file first recorded late is only skipped.
+    std::fs::write(&stats, b"{\"edited\": true}\n").unwrap();
+    let mut late = entries.clone();
+    let mut m = serde_json::Map::new();
+    m.insert("action".into(), "statistics_report_written".into());
+    m.insert(
+        "details".into(),
+        serde_json::json!({"files": {
+            "statistics.json": {"sha256": sha(b"{\"edited\": true}\n")},
+            "added-later.json": {"sha256": sha(b"x")},
+        }}),
+    );
+    late.push(m);
+    rechain(&logs, late);
+    let (code, summary, problems) = both_verifiers(&py, &logs);
+    assert_eq!(code, 3);
+    assert!(summary.contains(", 1 changed, 2 skipped"), "{summary}");
+    assert!(
+        problems[0].contains("output reports/statistics.json: blake3 differs"),
+        "{problems:?}"
+    );
+    std::fs::write(&stats, &saved).unwrap();
+    rechain(&logs, entries);
+    assert_eq!(both_verifiers(&py, &logs).0, 0);
+}
