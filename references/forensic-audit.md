@@ -100,6 +100,14 @@ truncation from the chain alone. It compares the end of the log with the records
   `truncation: entries up to #K are anchored by …; n entries after it (…) cannot be proven complete` — or, with no
   anchor, exactly `truncation not detectable without a timestamp or case record` (exit 0). Same wording in both
   profiles (Rust `src/core/src/verify.rs`, Python `core/verify.py`).
+- Recorded outputs (shared `src/core/src/outputs.rs`, byte-identical in every Rust tool like `trust.rs`): `verify-log`
+  and `verify-case` re-hash every file the audit log records (`environment_recorded`, `hash_register_written`,
+  `item_reports_written`, `statistics_report_written`, `output_written {file}`, `timeline_written`, `report_written`,
+  `rsmf_written`, `trace_written`; the module documentation lists every shape) with every recorded algorithm; the
+  latest entry for a file wins. Missing, edited or replaced → problem (exit 3), named; a recorded path that is
+  absolute, has `..`, `\` or `:`, or resolves outside the run folder (symlink, junction) is rejected, not read.
+  Output: `outputs: N verified of M recorded (algorithms)`. A new tool that records outputs under a new action
+  name extends `outputs.rs` in every repo at once. The Python profile has no equivalent yet.
 - `timestamp <logdir>` uses `AuditLog::resume` / `AuditLog.resume`: it re-verifies the chain, then appends
   `timestamp_obtained` (or a new `timestamp_pending`) with the next seq. Never rewrite earlier entries.
 - `--tsa-url` (default `http://timestamp.digicert.com`), `--no-timestamp` / env `RV_NO_TIMESTAMP=1` for tests and
