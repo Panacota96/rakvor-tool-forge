@@ -36,6 +36,7 @@ flowchart LR
 | v1.3.0 | `40f55bb46e807a787e28937b17766708f52aed0e` (Windows clippy in CI, reproducible bundles, `--no-council`, scripts fixed for Windows) |
 | v1.3.1 | `01175f8e25d3a4396019d61b5808d5d065a6cc9f` (deny.toml notes mail-auth's verify-only rsa use; lessons from rv-mailauth: containers, small worker options, toolchain bumps) |
 | v1.4.0 | `77aad1c2c0f2605043542bc14b9fe8b7b2a3728e` (verify-log and verify-case re-hash the outputs the audit log records: shared `outputs.rs`) |
+| v1.4.1 | `e6c9afc74801e7e4a68c955dbb384db125d51ae1` (the independent Python checker `tests/verify_chain.py` re-hashes recorded outputs too; identical in both templates) |
 
 ```bash
 git init -q <tmp>/forge && git -C <tmp>/forge fetch -q --depth 1 https://github.com/Panacota96/rakvor-tool-forge <commit>
