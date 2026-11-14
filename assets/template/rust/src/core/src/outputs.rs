@@ -289,19 +289,20 @@ pub fn verify_with_layout(layout: &RunLayout, audit: &[Value]) -> OutputsCheck {
                 // recorded before it (else appending one could hide an edited report); it is only noted.
                 let reason =
                     "recorded after run_finished, outside the run's anchored log".to_string();
-                if latest.contains_key(&path) {
-                    c.skipped.push(Skipped {
-                        file: path,
+                match latest.entry(path) {
+                    std::collections::btree_map::Entry::Occupied(o) => c.skipped.push(Skipped {
+                        file: o.key().clone(),
                         seq,
                         reason: format!("{reason}: the earlier record is the one checked"),
-                    });
-                } else {
-                    // An entry that is not re-hashed anyway (an RFC 3161 token) keeps its own reason.
-                    let r = match r {
-                        Rec::Check(..) => Rec::Skip(path.clone(), reason),
-                        skip => skip,
-                    };
-                    latest.insert(path, (seq, r));
+                    }),
+                    std::collections::btree_map::Entry::Vacant(v) => {
+                        // An entry that is not re-hashed anyway (an RFC 3161 token) keeps its own reason.
+                        let r = match r {
+                            Rec::Check(..) => Rec::Skip(v.key().clone(), reason),
+                            skip => skip,
+                        };
+                        v.insert((seq, r));
+                    }
                 }
                 continue;
             }
