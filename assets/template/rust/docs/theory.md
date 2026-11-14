@@ -499,7 +499,8 @@ A log that ends before `#K` or `#M` is reported as `truncated: …` (exit 3). Th
 the final entry, the log is complete as far as anything outside it can tell.
 
 Independent check: [tests/verify_chain.py](../tests/verify_chain.py) re-implements the chain in Python (standard
-library) and re-hashes the evidence listed in `hashes.csv` (it needs that file: it is a run checker, not a case-log
+library) and re-hashes the evidence listed in `hashes.csv` and every output the audit log records (it needs that file:
+it is a run checker, not a case-log
 checker). The append-only file is opened with `create_new` + `append`: an existing log is never overwritten; only
 the `timestamp` command re-opens a log, after verifying it.
 

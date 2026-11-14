@@ -74,7 +74,7 @@ PRIS content.
 | F9 | Declared limitations, printed in every report | `LIMITATIONS` in [src/core/src/report/mod.rs](../src/core/src/report/mod.rs); [i18n/en.json](../i18n/en.json) (`limitations`) |
 | F10 | Known-answer self-test (hash algorithms only) | `rv-hashinv self-test` |
 | F11 | Synthetic sample evidence with expected results | [examples/sample/](../examples/README.md): 3 files, `expected_hashes.csv` (Python `hashlib`/`blake3`), expected summary |
-| F12 | Test oracles (independent implementations) | [tests/verify_chain.py](../tests/verify_chain.py) re-checks the chain and re-hashes the evidence with Python (in CI); [tests/validate_reports.py](../tests/validate_reports.py) JSON Schemas (in CI); pyHanko's validator on every signed PDF ([tests/validate_pdf_signature.py](../tests/validate_pdf_signature.py), in CI); OpenSSL for timestamps (manual); the Python profile of this tool: a committed case folder it wrote is verified in CI ([tests/golden/](../tests/golden/regenerate.py)), and the live cross-profile test (case folders and item numbering) runs with `RV_CROSS_PROJECT` |
+| F12 | Test oracles (independent implementations) | [tests/verify_chain.py](../tests/verify_chain.py) re-checks the chain, re-hashes the evidence and every output the audit log records with Python (in CI); [tests/validate_reports.py](../tests/validate_reports.py) JSON Schemas (in CI); pyHanko's validator on every signed PDF ([tests/validate_pdf_signature.py](../tests/validate_pdf_signature.py), in CI); OpenSSL for timestamps (manual); the Python profile of this tool: a committed case folder it wrote is verified in CI ([tests/golden/](../tests/golden/regenerate.py)), and the live cross-profile test (case folders and item numbering) runs with `RV_CROSS_PROJECT` |
 | F13 | Robustness tests | cancel, unreadable input, missing input, three algorithms, edited/deleted/re-ordered log, tampered case log and registry, lock contention ([src/core/src/run.rs](../src/core/src/run.rs), [src/core/src/case.rs](../src/core/src/case.rs), [src/cli/tests/cli.rs](../src/cli/tests/cli.rs)); no fuzzing |
 | F14 | CI on Windows and Linux | [.github/workflows/ci.yml](../.github/workflows/ci.yml) |
 | F15 | SBOM and build provenance | [.github/workflows/release.yml](../.github/workflows/release.yml) (CycloneDX, `actions/attest-build-provenance`) |
@@ -535,7 +535,7 @@ Gaps specific to this tool's domain (inventory and type detection):
    `rv-hashinv verify-log <log folder>` prints `OK` with a `truncation:` line naming its anchor (the timestamp or
    the case log), not `truncation not detectable without a timestamp or case record` (G20).
 8. **Independent chain check**: `python tests/verify_chain.py <log folder>` exits 0 (it also re-hashes the evidence
-   listed in `hashes.csv`).
+   listed in `hashes.csv` and every output the audit log records).
 9. **Timestamp**: `timestamp_obtained` is present (or obtained later with `rv-hashinv timestamp`),
    `rv-hashinv verify-log <log folder> --tsa-ca <TSA roots>` prints `chain validated to …` (not `chain not checked`),
    the token was verified independently with OpenSSL (a signature/chain check only): `openssl ts -verify -digest
