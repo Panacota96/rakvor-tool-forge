@@ -38,6 +38,26 @@ REQUIRED_FILES = [
     "tests/verify_chain.py", "tests/validate_reports.py",
 ]
 REQUIRED_DIRS = ["src", "docs", "tests", "examples", "examples/sample/evidence"]
+# Collection tools (input_mode "collection", e.g. RV Triage) read a live system or a volume, not evidence files: their
+# sample is a folder laid out like the source they read (examples/sample/source), and the main verb takes --source.
+COLLECTION_SAMPLE = "examples/sample/source"
+EVIDENCE_INPUT_FLAGS = ("--input", "--input-list", "--recursive", "--evidence")
+
+
+def input_mode(forge: dict | None) -> str:
+    """'evidence' (default: -i files/folders), 'case' (the verb works on a case folder) or 'collection'."""
+    return (forge or {}).get("input_mode") or "evidence"
+
+
+def sample_dir(root: Path, forge: dict | None) -> Path:
+    return root / (COLLECTION_SAMPLE if input_mode(forge) == "collection" else "examples/sample/evidence")
+
+
+def sample_input(root: Path, forge: dict | None, out: Path) -> list:
+    """The input arguments of a standalone sample run writing to `out` (not used in case mode)."""
+    if input_mode(forge) == "collection":
+        return ["--source", sample_dir(root, forge), "-o", out]
+    return ["-i", sample_dir(root, forge), "-r", "-o", out]
 HELP_SECTIONS = ["DESCRIPTION:", "EXAMPLES:", "EXIT CODES:", "FILES WRITTEN:", "FORENSIC NOTES:"]
 COMMON_FLAGS = ["--input", "--input-list", "--recursive", "--hash", "--out", "--lang", "--actor", "--case", "--progress",
                 "--jurisdiction", "--tsa-url", "--no-timestamp", "--sign-cert", "--case-dir", "--evidence"]
@@ -88,7 +108,9 @@ def static_checks(root: Path, r: Report) -> dict:
     lic = read(root / "LICENSE")
     r.add("licence is the Rakvor source-auditable licence (local use, audit rights, no redistribution)", "RAKVOR SOURCE-AUDITABLE LICENCE" in lic and "Audit right" in lic)
     r.add("required files present", not missing, ", ".join(missing))
-    missing_dirs = [d for d in REQUIRED_DIRS if not (root / d).is_dir()]
+    dirs = [COLLECTION_SAMPLE if d == "examples/sample/evidence" and input_mode(forge) == "collection" else d
+            for d in REQUIRED_DIRS]
+    missing_dirs = [d for d in dirs if not (root / d).is_dir()]
     r.add("src/ docs/ tests/ examples/ present", not missing_dirs, ", ".join(missing_dirs))
 
     lic = read(root / "LICENSE")
@@ -274,8 +296,12 @@ def dynamic_checks(root: Path, forge: dict, r: Report, run_tests: bool) -> None:
     r.add(f"`{command} --help` has every required section", not missing, ", ".join(missing))
     # input_mode "case" (.forge.json): the main verb works on a case folder (e.g. RV Hub's whole-case verify), not on
     # evidence files, so the evidence-input options are not expected and the sample is a copy of examples/sample/case.
-    case_mode = forge.get("input_mode") == "case"
-    flags = [f for f in COMMON_FLAGS if not (case_mode and f in ("--input", "--input-list", "--recursive", "--evidence"))]
+    case_mode = input_mode(forge) == "case"
+    collection = input_mode(forge) == "collection"
+    # A collection takes --source instead of the evidence inputs and hands its package to the intake tool, so it
+    # takes no case folder either.
+    flags = [f for f in COMMON_FLAGS if not ((case_mode or collection) and f in EVIDENCE_INPUT_FLAGS)
+             and not (collection and f == "--case-dir")] + (["--source"] if collection else [])
     missing_flags = [f for f in flags if f not in h]
     r.add(f"`{command} --help` documents the common options", not missing_flags, ", ".join(missing_flags))
     r.add("every option shows a Default and an Example", h.count("Default:") >= len(flags) and h.count("Example:") >= len(flags),
@@ -284,15 +310,20 @@ def dynamic_checks(root: Path, forge: dict, r: Report, run_tests: bool) -> None:
         r.add(f"`{sub}` subcommand exists", run_cli(root, base, sub, "--help").returncode == 0)
     r.add("self-test passes", run_cli(root, base, "self-test").returncode == 0)
 
-    target = ["--case-dir", "."] if case_mode else ["-i", "."]
-    r.add("three hash algorithms are refused (exit 2)", run_cli(root, base, command, *target, "--hash", "md5,sha1,sha256").returncode == 2)
-    r.add("unknown language is refused (exit 2)", run_cli(root, base, command, *target, "--lang", "xx").returncode == 2)
+    with tempfile.TemporaryDirectory(prefix="forge-refuse-") as refuse:
+        target = ["--case-dir", "."] if case_mode else (sample_input(root, forge, Path(refuse) / "out") if collection
+                                                         else ["-i", "."])
+        r.add("three hash algorithms are refused (exit 2)",
+              run_cli(root, base, command, *target, "--hash", "md5,sha1,sha256").returncode == 2)
+        r.add("unknown language is refused (exit 2)", run_cli(root, base, command, *target, "--lang", "xx").returncode == 2)
+        if collection:
+            r.add("a refused collection writes nothing", not (Path(refuse) / "out").exists())
 
     docs = run_cli(root, base, "docs-cli")
     r.add("docs/usage-cli.md matches --help (no drift)", docs.returncode == 0 and docs.stdout == read(root / "docs/usage-cli.md"),
           "regenerate with the hidden `docs-cli` command" if docs.returncode == 0 else docs.stderr[-300:])
 
-    evidence = root / "examples" / "sample" / "evidence"
+    evidence = sample_dir(root, forge)
     before = {p: file_digest(p, "sha256") for p in evidence.rglob("*") if p.is_file()}
     with tempfile.TemporaryDirectory(prefix="forge-validate-") as tmp:
         out = Path(tmp) / "out"
@@ -302,8 +333,8 @@ def dynamic_checks(root: Path, forge: dict, r: Report, run_tests: bool) -> None:
                           "--actor", "validator", "--progress", "jsonl", *forge.get("sample_args", []))
             out = latest_case_run(copy, forge) or out
         else:
-            res = run_cli(root, base, command, "-i", evidence, "-r", "--hash", "sha256,md5", "--lang", "all", "--case", "VALIDATE-1",
-                          "--actor", "validator", "--progress", "jsonl", "-o", out, *forge.get("sample_args", []))
+            res = run_cli(root, base, command, *sample_input(root, forge, out), "--hash", "sha256,md5", "--lang", "all",
+                          "--case", "VALIDATE-1", "--actor", "validator", "--progress", "jsonl", *forge.get("sample_args", []))
         r.add("sample run completes (exit 0 or 3)", res.returncode in (0, 3), f"exit {res.returncode}: {res.stderr[-400:]}")
         events = []
         for line in res.stdout.splitlines():
@@ -311,7 +342,12 @@ def dynamic_checks(root: Path, forge: dict, r: Report, run_tests: bool) -> None:
                 events.append(json.loads(line))
             except json.JSONDecodeError:
                 pass
-        r.add("--progress jsonl emits run_started ... run_finished", bool(events) and events[0].get("event") == "run_started"
+        # A collection reports its phases and artifacts before run_started (the item count is known only after
+        # the copy); nothing else may come first.
+        lead = next((i for i, e in enumerate(events) if e.get("event") == "run_started"), None)
+        early_ok = lead is not None and all(e.get("event") in (("phase", "artifact", "progress") if collection else ())
+                                            for e in events[:lead])
+        r.add("--progress jsonl emits run_started ... run_finished", bool(events) and early_ok
               and events[-1].get("event") == "run_finished")
         elapsed = [e.get("elapsed_ms", 0) for e in events if e.get("event") == "progress"]
         r.add("progress events carry monotonic elapsed_ms", bool(elapsed) and elapsed == sorted(elapsed))
@@ -356,8 +392,18 @@ def dynamic_checks(root: Path, forge: dict, r: Report, run_tests: bool) -> None:
                     mismatch.append(f"{p.name}:{algo}")
         r.add("hash register matches an independent computation", (bool(rows) or case_mode) and not mismatch, ", ".join(mismatch))
         exp = list(csv.DictReader(read(root / "examples/sample/expected_hashes.csv").splitlines()))
-        exp_bad = [e["file"] for e in exp if (evidence / e["file"]).is_file() and file_digest(evidence / e["file"], "sha256") != e.get("sha256")]
-        r.add("examples/sample/expected_hashes.csv is correct", bool(exp) and not exp_bad, ", ".join(exp_bad))
+        if collection:
+            # Collection: expected_hashes.csv lists package paths (relative to reports/<RUN-ID>/package): every one
+            # must be in the package with the expected size and digests.
+            package = rep / "package"
+            exp_bad = [e.get("package_path", "?") for e in exp
+                       if not (package / e.get("package_path", "")).is_file()
+                       or file_digest(package / e["package_path"], "sha256") != e.get("sha256")
+                       or (e.get("md5") and file_digest(package / e["package_path"], "md5") != e["md5"])]
+            r.add("the package matches examples/sample/expected_hashes.csv", bool(exp) and not exp_bad, ", ".join(exp_bad[:5]))
+        else:
+            exp_bad = [e["file"] for e in exp if (evidence / e["file"]).is_file() and file_digest(evidence / e["file"], "sha256") != e.get("sha256")]
+            r.add("examples/sample/expected_hashes.csv is correct", bool(exp) and not exp_bad, ", ".join(exp_bad))
 
         stats = ["statistics.json"] + [f"statistics.{lang}.{ext}" for lang in ("en", "es", "fr") for ext in ("html", "pdf")]
         r.add("statistics report in JSON + HTML + PDF (en/es/fr)", all((rep / f).is_file() for f in stats),
@@ -368,7 +414,9 @@ def dynamic_checks(root: Path, forge: dict, r: Report, run_tests: bool) -> None:
             [f"custody.{lang}.{ext}" for lang in ("es", "en") for ext in ("html", "pdf")]
         incomplete = [i.name for i in items if not all((i / f).is_file() for f in per_item)]
         r.add("one folder per item with technical + customer reports + custody form",
-              bool(items) and (case_mode or len(items) == len(rows)) and not incomplete,
+              # a collection also reports the targets it could not collect (no register row)
+              bool(items) and (case_mode or len(items) == len(rows) or (collection and len(items) >= len(rows)))
+              and not incomplete,
               f"{len(items)} folders for {len(rows)} items; incomplete: {', '.join(incomplete)}")
         pdfs = [p for p in rep.rglob("*.pdf") if p.is_file()]
         bad_pdf = [p.name for p in pdfs if not (p.read_bytes()[:5] == b"%PDF-" and b"%%EOF" in p.read_bytes()[-32:])]
@@ -399,11 +447,17 @@ def dynamic_checks(root: Path, forge: dict, r: Report, run_tests: bool) -> None:
         except ImportError:
             pass
         after = {p: file_digest(p, "sha256") for p in evidence.rglob("*") if p.is_file()}
-        r.add("evidence unchanged after the run", before == after)
+        r.add("collection source unchanged after the run" if collection else "evidence unchanged after the run", before == after)
 
     trust_checks(root, base, command, evidence, r, forge)
     if case_mode:
         case_input_checks(root, base, command, forge, r)
+    elif collection:
+        with tempfile.TemporaryDirectory(prefix="forge-nocase-") as tmp:
+            res = run_cli(root, base, command, *sample_input(root, forge, Path(tmp) / "out"), "--case-dir", Path(tmp) / "case")
+            r.add("collection takes no case folder (its package goes to the intake tool)",
+                  res.returncode == 2 and not (Path(tmp) / "case").exists() and not (Path(tmp) / "out").exists(),
+                  f"exit {res.returncode}")
     else:
         case_checks(root, base, command, evidence, forge, r)
 
@@ -638,7 +692,7 @@ def trust_checks(root: Path, base: list[str], command: str, evidence: Path, r: R
         try:
             url = (srv.stdout.readline() if srv.stdout else "").strip()
             env = {"RV_NO_TIMESTAMP": None, "RV_SIGN_PASSWORD": "test", "NO_PROXY": "127.0.0.1,localhost", "no_proxy": "127.0.0.1,localhost"}
-            case_mode = (forge or {}).get("input_mode") == "case"
+            case_mode = input_mode(forge) == "case"
             if case_mode:
                 case = sample_case_copy(root, forge, Path(tmp) / "case")
                 res = run_cli(root, base, command, "--case-dir", case, "--tsa-url", url, "--sign-cert", pki / "examiner.p12",
@@ -646,8 +700,9 @@ def trust_checks(root: Path, base: list[str], command: str, evidence: Path, r: R
                 out = latest_case_run(case, forge) or out
                 logs = [out / "logs"] if (out / "logs").is_dir() else []
             else:
-                res = run_cli(root, base, command, "-i", evidence, "-r", "--tsa-url", url, "--sign-cert", pki / "examiner.p12",
-                              "--jurisdiction", "fr", "--progress", "none", "-o", out, *(forge or {}).get("sample_args", []), env_extra=env)
+                res = run_cli(root, base, command, *sample_input(root, forge, out), "--tsa-url", url, "--sign-cert",
+                              pki / "examiner.p12", "--jurisdiction", "fr", "--progress", "none",
+                              *(forge or {}).get("sample_args", []), env_extra=env)
                 logs = sorted((out / "logs").glob("*")) if (out / "logs").exists() else []
             log = logs[-1] if logs else None
             ok_ts = bool(log) and '"timestamp_obtained"' in read(log / "audit.jsonl") and any(log.glob("timestamp-*.tsr"))
@@ -679,8 +734,9 @@ def trust_checks(root: Path, base: list[str], command: str, evidence: Path, r: R
                 run2 = latest_case_run(case2, forge)
                 off_logs = [run2 / "logs"] if run2 and (run2 / "logs").is_dir() else []
             else:
-                pending = run_cli(root, base, command, "-i", evidence, "--tsa-url", "http://127.0.0.1:9/", "--progress", "none",
-                                  "-o", off, *(forge or {}).get("sample_args", []), env_extra={"RV_NO_TIMESTAMP": None})
+                pending = run_cli(root, base, command, *sample_input(root, forge, off), "--tsa-url", "http://127.0.0.1:9/",
+                                  "--progress", "none", *(forge or {}).get("sample_args", []),
+                                  env_extra={"RV_NO_TIMESTAMP": None})
                 off_logs = sorted((off / "logs").glob("*")) if (off / "logs").exists() else []
             r.add("unreachable TSA: run still finishes and logs timestamp_pending", pending.returncode in (0, 3) and bool(off_logs)
                   and '"timestamp_pending"' in read(off_logs[-1] / "audit.jsonl"), f"exit {pending.returncode}: {pending.stderr[-200:]}")
