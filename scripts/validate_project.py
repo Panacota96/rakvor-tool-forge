@@ -418,12 +418,19 @@ def dynamic_checks(root: Path, forge: dict, r: Report, run_tests: bool) -> None:
               bool(items) and (case_mode or len(items) == len(rows) or (collection and len(items) >= len(rows)))
               and not incomplete,
               f"{len(items)} folders for {len(rows)} items; incomplete: {', '.join(incomplete)}")
-        pdfs = [p for p in rep.rglob("*.pdf") if p.is_file()]
+        # A collection's package holds collected source files: they are checked for preservation (hashes above),
+        # never as generated reports.
+        def generated(p: Path) -> bool:
+            return p.is_file() and not (collection and (rep / "package") in p.parents)
+
+        pdfs = [p for p in rep.rglob("*.pdf") if generated(p)]
         bad_pdf = [p.name for p in pdfs if not (p.read_bytes()[:5] == b"%PDF-" and b"%%EOF" in p.read_bytes()[-32:])]
         r.add("PDFs are well-formed", bool(pdfs) and not bad_pdf, ", ".join(bad_pdf[:5]))
         r.add("languages really differ (es/fr vs en)", read(rep / "statistics.es.html") != read(rep / "statistics.en.html")
               and read(rep / "statistics.fr.html") != read(rep / "statistics.en.html"))
-        tech = next(iter(items), None)
+        # A collection's uncollected targets have reports but no hashes: check a collected item.
+        tech = next((i for i in items if not collection
+                     or json.loads(read(i / "technical.json") or "{}").get("hashes")), None)
         if tech:
             tj = json.loads(read(tech / "technical.json") or "{}")
             r.add("technical JSON has schema, hashes, findings, limitations",
@@ -436,7 +443,7 @@ def dynamic_checks(root: Path, forge: dict, r: Report, run_tests: bool) -> None:
                        (("statistics.json", "statistics"), ("technical.json", "item-technical"), ("summary.json", "item-summary"), ("custody.json", "item-custody"))
                        if (root / "schemas" / f"{s}.schema.json").is_file()}
             invalid = []
-            for j in [p for p in rep.rglob("*.json") if p.is_file()][:300]:
+            for j in [p for p in rep.rglob("*.json") if generated(p)][:300]:
                 try:
                     if j.name not in schemas:
                         continue
