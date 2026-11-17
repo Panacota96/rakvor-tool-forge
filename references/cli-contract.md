@@ -12,6 +12,20 @@ Every Rakvor CLI behaves the same way, so examiners learn it once and scripts ke
 | `<tool> self-test` | Known-answer test of every hash algorithm (input `"abc"`) | exit 0 / 1 |
 | `<tool> docs-cli` | **Hidden.** Prints every command's long help as Markdown → `docs/usage-cli.md` | CI fails on drift |
 
+## Input modes (`.forge.json` `input_mode`)
+
+| `input_mode` | Main verb reads | Input options | Sample the validator runs | Case folder |
+| --- | --- | --- | --- | --- |
+| `evidence` (default) | evidence files and folders | `-i/--input`, `-L/--input-list`, `-r/--recursive`, `--case-dir`, `--evidence` | `-i examples/sample/evidence -r -o <tmp>` | intake or analysis role |
+| `case` (RV Hub) | a whole case folder | `--case-dir` | a copy of `sample_case` | the case it is given |
+| `collection` (RV Triage) | a live system or a volume (`--source live\|<image>\|<folder>`) | `--source`; no evidence inputs, no `--case-dir` | `--source examples/sample/source -o <tmp>` | none: its package is registered later by the intake tool |
+
+A collection writes its package under `reports/<RUN-ID>/package/` and records every packaged file with
+`output_written` (`details.file` = `package/<path>`), so `verify-log` re-hashes it. `examples/sample/expected_hashes.csv`
+lists `package_path,size,sha256,md5` relative to that folder, computed with an independent tool. A collection must
+refuse a bad option (exit 2) before it writes anything, and must never write into the source it reads.
+`sample_args` (a list) is appended to every sample run in all modes.
+
 ## Common options (main command)
 
 | Option | Values | Default |

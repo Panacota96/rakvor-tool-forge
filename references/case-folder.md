@@ -28,6 +28,11 @@ formats: a case written by one profile is verified and extended by the other (cr
 | Intake (reference rv-hashinv) | `pub const CASE_ROLE: CaseRole = CaseRole::Intake;` in `src/core/src/lib.rs` | `CASE_ROLE = "intake"` in `core/__init__.py` | `"case_role": "intake"` |
 | Analysis (scaffolded tools) | `CaseRole::Analysis` | `"analysis"` | `"case_role": "analysis"` |
 
+A **collection** tool (`.forge.json` `"input_mode": "collection"`, e.g. RV Triage) keeps the analysis constant but takes
+no case folder: it runs on the machine being collected and writes a self-verifying package, which the intake tool
+registers in the lab. Its `describe --json` reports `"role": "collection"`, which RV Hub lists but never opens on a
+case (see cli-contract.md, Input modes).
+
 Both behaviours live in the shared code; `RunConfig.case_role` defaults to the constant, so tests construct either
 role explicitly. **The scaffold flips the constant and `case_role` together**; the validator checks they agree.
 Front-end tests (CLI, GUI) are role-aware: for an analysis tool they seed the registry with an explicit intake run
