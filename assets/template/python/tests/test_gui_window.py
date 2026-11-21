@@ -76,3 +76,19 @@ def test_window_case_folder_locks_output_and_lists_evidence_ids(qapp, tmp_path, 
     assert (tmp_path / "CASE-W" / "evidence" / "registry.json").is_file()
     w.close()
     QCoreApplication.processEvents()
+
+
+def test_release_banner_follows_the_interface_language(qapp):
+    """The start-up release banner is rendered again when the interface language changes (no network: the
+    check's result is set by hand; a window built by a test never starts the check)."""
+    w = MainWindow([])
+    assert not w.update_note.isVisibleTo(w)
+    w.update_result = {"status": "available", "current": "0.1.0", "latest": "0.2.0",
+                       "url": "https://github.com/Panacota96/rv-hashinv/releases/tag/v0.2.0"}
+    w.render_update()
+    assert w.update_note.isVisibleTo(w) and "A new release" in w.update_note.text()
+    w.ui_lang.setCurrentIndex([w.ui_lang.itemData(i) for i in range(w.ui_lang.count())].index("fr"))
+    assert "Une nouvelle version" in w.update_note.text()
+    w.update_result = {"status": "up_to_date", "current": "0.2.0", "latest": "0.2.0"}
+    w.render_update()
+    assert not w.update_note.isVisibleTo(w)

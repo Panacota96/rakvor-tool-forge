@@ -247,8 +247,20 @@ class MainWindow(QMainWindow):
         v.addStretch(1)
         self.setCentralWidget(root)
 
+    def render_update(self) -> None:
+        """The release banner of the finished start-up check, in the interface language (hidden when none)."""
+        from ..core import update
+
+        result = getattr(self, "update_result", None)
+        text = update.banner(result, "RV HashInv", self.state.ui_lang) if result else None
+        if text:
+            url = result["url"]
+            self.update_note.setText(f'{text} <a href="{url}">{url}</a>')
+        self.update_note.setVisible(bool(text))
+
     def retranslate(self) -> None:
         """Applies the interface language to every text (called on start and on every language change)."""
+        self.render_update()
         tr = self.state.tr
         from ..core.i18n import catalog
 
@@ -474,16 +486,12 @@ class MainWindow(QMainWindow):
 
 
 def _show_update(w: "MainWindow", check) -> None:
-    from ..core import update
-
     if check.result is None:
         return
     w._update_timer.stop()
-    text = update.banner(check.result, "RV HashInv", w.state.ui_lang)
-    if text:
-        url = check.result["url"]
-        w.update_note.setText(f'{text} <a href="{url}">{url}</a>')
-        w.update_note.setVisible(True)
+    # Kept: retranslate() renders it again in the new language.
+    w.update_result = check.result
+    w.render_update()
 
 
 def start_update_check(w: "MainWindow") -> None:
