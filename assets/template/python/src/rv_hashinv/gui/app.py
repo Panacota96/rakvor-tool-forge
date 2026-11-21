@@ -120,6 +120,11 @@ class MainWindow(QMainWindow):
         top.addWidget(self.ui_lang_label)
         top.addWidget(self.ui_lang)
         v.addLayout(top)
+        # A newer release, when the start-up check (core.update, started by main() only) found one.
+        self.update_note = QLabel(wordWrap=True, openExternalLinks=True)
+        self.update_note.setStyleSheet("color: #F5B041;")
+        self.update_note.setVisible(False)
+        v.addWidget(self.update_note)
         self.audit_note = QLabel(objectName="muted")
         v.addWidget(self.audit_note)
 
@@ -468,6 +473,29 @@ class MainWindow(QMainWindow):
             self.warn_list.addItems(s.warnings)
 
 
+def _show_update(w: "MainWindow", check) -> None:
+    from ..core import update
+
+    if check.result is None:
+        return
+    w._update_timer.stop()
+    text = update.banner(check.result, "RV HashInv", w.state.ui_lang)
+    if text:
+        url = check.result["url"]
+        w.update_note.setText(f'{text} <a href="{url}">{url}</a>')
+        w.update_note.setVisible(True)
+
+
+def start_update_check(w: "MainWindow") -> None:
+    """The start-up release check (notify only; RV_NO_UPDATE_CHECK=1 turns it off), polled twice a second."""
+    from ..core import update
+
+    check = update.Background()
+    w._update_timer = QTimer(w)
+    w._update_timer.timeout.connect(lambda: _show_update(w, check))
+    w._update_timer.start(500)
+
+
 def main() -> None:
     app = QApplication(sys.argv)
     app.setApplicationName("RV HashInv")
@@ -475,6 +503,7 @@ def main() -> None:
         app.setWindowIcon(QIcon(str(icon_path())))
     # Files or folders dropped on the executable's icon (or passed as arguments) are pre-loaded.
     w = MainWindow([a for a in sys.argv[1:] if not a.startswith("-")])
+    start_update_check(w)
     w.show()
     sys.exit(app.exec())
 

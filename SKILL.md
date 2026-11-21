@@ -48,8 +48,8 @@ flowchart LR
 | Area | Requirement (checked by `validate_project.py`) |
 | --- | --- |
 | Shape | One core library that never prints; CLI and GUI are thin front-ends rendering the core's events |
-| CLI | `scan` (or domain verb), `verify-log`, `self-test`, hidden `docs-cli`; `--help` sections DESCRIPTION, Options (each with `Default:` and `Example:`), EXAMPLES, EXIT CODES, FILES WRITTEN, FORENSIC NOTES; exit codes 0/1/2/3/130; `--progress bar|jsonl|none` |
-| GUI | Windows 10/11; pickers + drag & drop; hash checkboxes (max 2); report language; interface language ES/EN/FR switchable in the window; trust section (timestamp, certificate, jurisdiction); progress bar, live elapsed time, ETA, Cancel, Open report; rules in a tested `state` module; user actions audited |
+| CLI | `scan` (or domain verb), `verify-log`, `self-test`, `update-check` (shared release check, notify only), hidden `docs-cli`; `--help` sections DESCRIPTION, Options (each with `Default:` and `Example:`), EXAMPLES, EXIT CODES, FILES WRITTEN, FORENSIC NOTES; exit codes 0/1/2/3/130; `--progress bar|jsonl|none` |
+| GUI | Windows 10/11; pickers + drag & drop; hash checkboxes (max 2); report language; interface language ES/EN/FR switchable in the window; trust section (timestamp, certificate, jurisdiction); progress bar, live elapsed time, ETA, Cancel, Open report; start-up release-check banner (notify only); rules in a tested `state` module; user actions audited |
 | Input | single file, folder (bulk, `--recursive`), list file |
 | Hashing | 1 or 2 of md5, sha1, sha256, sha512, sha3-256, blake3 in one read; 3 → refused (exit 2); known-answer self-test |
 | Audit | `<out>/logs/<run-id>/`: `audit.jsonl` (hash-chained), `audit.log`, `hashes.csv`, `environment.json`; every output file hashed and logged; evidence read-only |

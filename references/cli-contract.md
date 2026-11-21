@@ -10,6 +10,7 @@ Every Rakvor CLI behaves the same way, so examiners learn it once and scripts ke
 | `<tool> verify-log <LOG>` | Verify an `audit.jsonl` (or its folder): chain, timestamp tokens, truncation against the timestamp's `covers_seq` and the case log's `run_finished` (see forensic-audit.md) | exit 0 intact, 3 broken or truncated, 1 unreadable |
 | `<tool> verify-case <CASE> [--rehash]` | Verify a case folder; `--rehash` re-hashes reachable registered evidence (see case-folder.md) | exit 0 intact, 3 broken or evidence differs, 1 not a case folder |
 | `<tool> self-test` | Known-answer test of every hash algorithm (input `"abc"`) | exit 0 / 1 |
+| `<tool> update-check [--json]` | Is a newer release published? Shared release check (`src/core/src/update.rs`, Python `core/update.py`): one HTTPS GET of `github.com/Panacota96/<tool>/releases/latest` (redirect read, not followed), `User-Agent: <tool>/<version>`, nothing else; notify only, never downloads; not part of a run, not audited; off with `RV_NO_UPDATE_CHECK=1` or `%APPDATA%\Rakvor\update-check-off`. JSON schema `rakvor.update-check/1` | exit 0 latest or off, 3 newer release, 1 could not check |
 | `<tool> docs-cli` | **Hidden.** Prints every command's long help as Markdown → `docs/usage-cli.md` | CI fails on drift |
 
 ## Input modes (`.forge.json` `input_mode`)
