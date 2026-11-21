@@ -42,12 +42,14 @@ Options:
   -h, --help     Show this message and exit.
 
 Commands:
-  scan         Hash, check and report on a file, a folder or a list of files.
-  self-test    Check every hash algorithm against known-answer test vectors.
-  timestamp    Add an RFC 3161 timestamp to a finished run (e.g. after working offline).
-  verify-case  Verify a whole case folder: case log, evidence registry and every run's audit log.
-  verify-log   Verify an audit log (audit.jsonl): edited, deleted or re-ordered entries, and
-               truncation.
+  scan          Hash, check and report on a file, a folder or a list of files.
+  self-test     Check every hash algorithm against known-answer test vectors.
+  timestamp     Add an RFC 3161 timestamp to a finished run (e.g. after working offline).
+  update-check  Check whether a newer release of this tool is published (notify only: nothing is
+                downloaded).
+  verify-case   Verify a whole case folder: case log, evidence registry and every run's audit log.
+  verify-log    Verify an audit log (audit.jsonl): edited, deleted or re-ordered entries, and
+                truncation.
 
   Run `rv-hashinv <COMMAND> --help` for the options, examples and exit codes of each command.
 ```

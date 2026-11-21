@@ -635,6 +635,37 @@ def self_test_cmd(ctx) -> None:
     ctx.exit(EXIT_ERROR if failed else EXIT_OK)
 
 
+@cli.command(
+    "update-check",
+    short_help="Check whether a newer release of this tool is published (notify only: nothing is downloaded).",
+    epilog="\b\nSENDS:\n"
+    "  One HTTPS GET of https://github.com/Panacota96/rv-hashinv/releases/latest (the redirect to the\n"
+    "  latest release is read, not followed), with the header User-Agent: rv-hashinv/<version>, and\n"
+    "  nothing else: no case, evidence, examiner or machine data. Nothing is downloaded or installed.\n"
+    "  No other command contacts the network for this; the desktop app checks once at start-up.\n\n"
+    "\b\nOFF SWITCH:\n"
+    "  RV_NO_UPDATE_CHECK=1 (any value but empty or 0), or the file update-check-off in\n"
+    "  %APPDATA%\\Rakvor (RV Hub's setting), turns the check off for every Rakvor tool.\n\n"
+    "\b\nEXAMPLES:\n  rv-hashinv update-check\n  rv-hashinv update-check --json\n\n"
+    "\b\nEXIT CODES:\n"
+    "  0  This is the latest release, or the check is turned off.\n"
+    "  1  The check could not be made (offline, timeout, no published release): nothing changed.\n"
+    "  3  A newer release is published: the output names it and its release page.",
+)
+@click.option("--json", "as_json", is_flag=True, help="Print one JSON object (schema rakvor.update-check/1) instead of one line.")
+@click.pass_context
+def update_check_cmd(ctx, as_json: bool) -> None:
+    """Check whether a newer release of this tool is published (notify only: nothing is downloaded)."""
+    from .core import update
+
+    c = update.check()
+    if as_json:
+        click.echo(json.dumps(update.report(TOOL_NAME, c), indent=2, sort_keys=True))
+    else:
+        click.echo(update.line(c))
+    ctx.exit({"available": 3, "failed": 1}.get(c["status"], 0))
+
+
 @cli.command("docs-cli", hidden=True)
 def docs_cli() -> None:
     """Print the full help of every command as Markdown (generates docs/usage-cli.md)."""

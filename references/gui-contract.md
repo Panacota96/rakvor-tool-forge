@@ -35,6 +35,7 @@ with unit tests; the window file only draws.
 | ETA | From `progress.eta_ms`; shows "—" when unknown or idle. |
 | Progress fraction | Bytes done / bytes total; falls back to items when all files are empty. |
 | Finish | Shows counts by severity, **Open report** (statistics in the chosen language; English when "all") and **Open log folder**. |
+| Release check | Started by the GUI binary's `main()` only (never by tests or screenshots): one background check at start-up (`update::start_gui_check`); the header shows a banner with the release page only when a newer release is published (amber text, EN/ES/FR); nothing while it runs, when it is off or when it fails. Never blocks, never downloads. |
 | Interface language | ES/EN/FR selector in the header; every label comes from i18n `ui` (`state.tr(key)`), switch applies immediately; independent of the report language. Default: OS locale, else English. |
 | Trust | Timestamp on by default; certificate picker + password field (password kept in memory only, never in settings, logs or environment.json); jurisdiction Colombia/France. A wrong password is reported when Start is pressed. |
 | Errors | Run errors → warnings list (also `item_error` in the log). Validation errors before a run → message box (not logged: no run exists yet). |
