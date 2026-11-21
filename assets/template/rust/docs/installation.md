@@ -7,7 +7,7 @@
 # Installation and verification (Windows 10/11)
 
 RV HashInv runs **locally** on the examiner's Windows 10 or 11 PC (x64). It needs no administrator rights, no
-runtime (static C runtime) and no network, except for the optional RFC 3161 timestamp. This page covers: getting a
+runtime (static C runtime) and no network, except for the optional RFC 3161 timestamp and the optional release check. This page covers: getting a
 release, **proving it is the genuine build**, installing it (portable zip or per-user installer), the first-run
 self-test, offline use, building from source for auditors, where files live, and uninstalling.
 
@@ -41,6 +41,7 @@ flowchart TB
 | Memory | Files are streamed in 1 MiB chunks: memory use does not grow with file size. |
 | Graphics | None required: the GUI also runs on VMs without a GPU driver (software rendering). |
 | Network | None, except the optional timestamp request (see [step 7](#7-offline-and-air-gapped-use)). |
+| Release check | Optional, notify only: the desktop app at start-up and `rv-hashinv update-check` read the public latest-release page on github.com ([Release check](#release-check)); `RV_NO_UPDATE_CHECK=1` turns it off. |
 
 ## 1. Download
 
@@ -217,8 +218,8 @@ Keep the console output and the run folder as the record of this verification.
 
 ## 7. Offline and air-gapped use
 
-The **only** network access in the code is the RFC 3161 timestamp request (one HTTP POST of a 32-byte hash to the
-TSA, [src/core/src/trust.rs](../src/core/src/trust.rs)). There is no telemetry, update check or licence check.
+Besides the optional release check ([Release check](#release-check)), the **only** network access in the code is the RFC 3161 timestamp request (one HTTP POST of a 32-byte hash to the
+TSA, [src/core/src/trust.rs](../src/core/src/trust.rs)). There is no telemetry or licence check.
 
 | To disable the timestamp | How |
 | --- | --- |
@@ -340,3 +341,16 @@ The same script compares this build with the Python profile of the tool (measure
 | Sample summary differs from step 6 | Wrong version or modified sample files; compare `environment.json` with the release notes and the sample digests with `expected_hashes.csv`. |
 | GUI window blank or very slow on a VM | No GPU driver: software rendering is used; give the VM more CPU. |
 | Building from source downloads another compiler | Expected: rustup installs the pinned 1.97.0 from `rust-toolchain.toml`. Offline, install it beforehand (`rustup toolchain install 1.97.0 --profile minimal`). |
+
+## Release check
+
+Is a newer release published? The tool can tell you; it never updates itself.
+
+| | |
+| --- | --- |
+| When | The desktop app checks once at start-up, in the background (a banner with the release page appears only when a newer release exists). The CLI checks only with `rv-hashinv update-check` (`--json` for scripts; exit 0 = latest, 3 = newer release, 1 = could not check). No other command contacts the network for it. RV Hub checks every tool it lists. |
+| What is sent | One HTTPS GET of `https://github.com/Panacota96/rv-hashinv/releases/latest` (the redirect is read, not followed) with `User-Agent: rv-hashinv/<version>` and no other header, cookie or parameter: nothing about the case, the evidence, the examiner or the machine. |
+| What it does | It names the newer version and its release page. It never downloads or installs anything: download the release and verify it (`SHA256SUMS`, Authenticode chain to the Rakvor root) as in [Verify the download](#2-verify-the-download) before use. |
+| Audit | The check is not part of a run and is not written to any audit log; a failed or slow check (offline, 5 s timeout) never blocks the tool. |
+| Turn it off | `RV_NO_UPDATE_CHECK=1` (any value but empty or `0`), or the file `update-check-off` in `%APPDATA%\Rakvor` (RV Hub's setting writes it): off for every Rakvor tool on this PC. |
+| Code | [src/core/src/update.rs](../src/core/src/update.rs) (shared, byte-identical, by every Rakvor tool) |

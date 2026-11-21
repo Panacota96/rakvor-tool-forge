@@ -306,9 +306,17 @@ def dynamic_checks(root: Path, forge: dict, r: Report, run_tests: bool) -> None:
     r.add(f"`{command} --help` documents the common options", not missing_flags, ", ".join(missing_flags))
     r.add("every option shows a Default and an Example", h.count("Default:") >= len(flags) and h.count("Example:") >= len(flags),
           f"Default: x{h.count('Default:')}, Example: x{h.count('Example:')}")
-    for sub in ("verify-log", "self-test", "timestamp", "verify-case"):
+    for sub in ("verify-log", "self-test", "timestamp", "verify-case", "update-check"):
         r.add(f"`{sub}` subcommand exists", run_cli(root, base, sub, "--help").returncode == 0)
     r.add("self-test passes", run_cli(root, base, "self-test").returncode == 0)
+    # The release check honours its off switch without contacting the network (no network is used here).
+    off = run_cli(root, base, "update-check", "--json", env_extra={"RV_NO_UPDATE_CHECK": "1"})
+    try:
+        off_status = json.loads(off.stdout).get("status")
+    except (json.JSONDecodeError, AttributeError):
+        off_status = None
+    r.add("`update-check` is off with RV_NO_UPDATE_CHECK=1 (exit 0, status disabled)",
+          off.returncode == 0 and off_status == "disabled", f"exit {off.returncode}, status {off_status}")
 
     with tempfile.TemporaryDirectory(prefix="forge-refuse-") as refuse:
         target = ["--case-dir", "."] if case_mode else (sample_input(root, forge, Path(refuse) / "out") if collection
