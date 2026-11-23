@@ -67,3 +67,5 @@ ignore = ["S101", "S603", "S607", "S404"]
 
 [tool.ruff.lint.per-file-ignores]
 "tests/*" = ["S106", "S105"]
+# Shared byte for byte by every Rakvor tool (the independent verifier): its closures are called inside the loop.
+"tests/verify_chain.py" = ["B023"]

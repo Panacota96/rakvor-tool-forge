@@ -346,7 +346,12 @@ fn evidence_is_not_modified() {
 #[test]
 fn executable_under_another_name_exits_3() {
     let ev = tempfile::tempdir().unwrap();
-    std::fs::write(ev.path().join("invoice.pdf"), b"MZ\x90\x00\x03\x00\x00\x00").unwrap();
+    // A minimal PE head: "MZ", the NT header offset at 0x3C, "PE\0\0" there (a bare "MZ" is not an executable).
+    let mut pe = vec![0u8; 0x80];
+    pe[..2].copy_from_slice(b"MZ");
+    pe[0x3C..0x40].copy_from_slice(&0x40u32.to_le_bytes());
+    pe[0x40..0x44].copy_from_slice(b"PE\0\0");
+    std::fs::write(ev.path().join("invoice.pdf"), &pe).unwrap();
     let out = tempfile::tempdir().unwrap();
     bin()
         .args(["scan", "-i"])

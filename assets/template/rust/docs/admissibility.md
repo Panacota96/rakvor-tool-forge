@@ -513,7 +513,7 @@ Gaps specific to this tool's domain (inventory and type detection):
 
 | ID | Gap | Affected | Mitigation now | Remedy | Owner |
 | --- | --- | --- | --- | --- | --- |
-| G5 | Unknown error rates and coverage of type detection (15 signatures; 2-byte `MZ` and GZIP magics; containers typed by their outer format) | CO-P15, CO-P16, CO-J8, ISO-17, US-6 | Present type findings as observations; confirm executables with a PE/ELF parser and mismatches with a format-aware tool | Labelled corpus; publish FP/FN rates per signature and release; extend the table | Eng. |
+| G5 | Unknown error rates and coverage of type detection (15 signatures; the 2-byte `MZ` and GZIP magics are confirmed by a second header check since QA F1 (2026-11-23); containers typed by their outer format) | CO-P15, CO-P16, CO-J8, ISO-17, US-6 | Present type findings as observations; confirm executables with a PE/ELF parser and mismatches with a format-aware tool | Labelled corpus; publish FP/FN rates per signature and release; extend the table | Eng. |
 | G23 | Files without an extension, or with an extension unknown to the table, are never compared (a program named `invoice` gives no finding) | CO-P15, ISO-4 | Review the `detected_type` column of the statistics report for executables regardless of findings | Flag executables whatever the extension | Eng. |
 | G26 | Sample scripts checking the tool's output — **closed**: `run.sh` and `run.ps1` compare the tool's `hashes.csv` (size, SHA-256, MD5) with `expected_hashes.csv` and fail on any difference; kept for numbering | — | — | — | — |
 <!-- /forge:domain -->

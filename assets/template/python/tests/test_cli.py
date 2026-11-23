@@ -99,7 +99,12 @@ def test_evidence_untouched(tmp_path):
 
 
 def test_executable_under_other_name_exits_3(tmp_path):
-    (tmp_path / "invoice.pdf").write_bytes(b"MZ\x90\x00\x03\x00\x00\x00")
+    # A minimal PE head: "MZ", the NT header offset at 0x3C, "PE\\0\\0" there (a bare "MZ" is not an executable).
+    pe = bytearray(0x80)
+    pe[0:2] = b"MZ"
+    pe[0x3C:0x40] = (0x40).to_bytes(4, "little")
+    pe[0x40:0x44] = b"PE\x00\x00"
+    (tmp_path / "invoice.pdf").write_bytes(bytes(pe))
     assert cli("scan", "-i", tmp_path / "invoice.pdf", "--progress", "none", "-o", tmp_path / "out").returncode == 3
 
 

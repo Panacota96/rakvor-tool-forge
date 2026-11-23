@@ -54,7 +54,7 @@ def test_audit_chain_detects_edit_delete_reorder(tmp_path):
 def test_analyzer():
     assert analyze("report.pdf", 10, b"%PDF-1.7").findings == []
     assert analyze("holiday.jpg", 10, b"%PDF-1.7").findings[0].code == "EXTENSION_MISMATCH"
-    f = analyze("invoice.pdf", 10, b"MZ\x90\x00").findings[0]
+    f = analyze("invoice.pdf", 4096, _pe_head(0x80)).findings[0]
     assert (f.code, f.severity) == ("EXECUTABLE_CONTENT", "high")
     assert analyze("empty.txt", 0, b"").findings[0].code == "EMPTY_FILE"
     assert analyze("clip.mov", 12, b"\0\0\0\x18ftypqt  ").findings == []
@@ -177,3 +177,43 @@ def test_environment_records_every_runtime_dependency_and_openssl():
     assert {"pyhanko", "asn1crypto", "cryptography", "click", "jinja2", "reportlab", "blake3"} <= names
     assert not {"pytest", "ruff"} & names, "dev tools are not runtime dependencies"
     assert env["tool"]["openssl"]["python_ssl"].startswith(("OpenSSL", "LibreSSL"))
+
+
+def _pe_head(lfanew: int) -> bytes:
+    """A 4 KiB head of a PE file whose NT header sits at `lfanew` (DOS header, stub, `PE\\0\\0`)."""
+    h = bytearray(4096)
+    h[0:2] = b"MZ"
+    h[2:4] = (0x90).to_bytes(2, "little")
+    h[4:6] = (3).to_bytes(2, "little")
+    h[8:10] = (4).to_bytes(2, "little")
+    h[0x3C:0x40] = lfanew.to_bytes(4, "little")
+    if lfanew + 4 <= len(h):
+        h[lfanew : lfanew + 4] = b"PE\x00\x00"
+    return bytes(h)
+
+
+def test_short_magics_are_confirmed():
+    """QA 2026-11-23, F1 (same rules as the Rust analyzer): `MZ` and `1F 8B` alone are no longer an executable or
+    gzip; real PE, DOS and gzip headers still are, and a PE header moved past the first 4 KiB is still flagged."""
+    a = analyze("invoice.pdf", 70_000, _pe_head(0xE8))
+    assert a.detected_type == "Windows executable (PE)"
+    assert (a.findings[0].code, a.findings[0].severity) == ("EXECUTABLE_CONTENT", "high")
+    b = analyze("invoice.pdf", 70_000, _pe_head(0x2000))
+    assert b.detected_type.startswith("Windows executable (PE") and b.findings[0].code == "EXECUTABLE_CONTENT"
+    dos = bytearray(_pe_head(0x2000))
+    dos[0x3C:0x40] = (0).to_bytes(4, "little")
+    c = analyze("game.dat", 1536, bytes(dos))
+    assert c.detected_type == "DOS executable (MZ)" and c.findings[0].code == "EXECUTABLE_CONTENT"
+    rnd = bytearray(((i * 2654435761) >> 13) & 0xFF for i in range(4096))
+    rnd[0:2] = b"MZ"
+    d = analyze("f23117.dat", 33_000, bytes(rnd))
+    assert d.detected_type is None and not d.findings
+    rnd[0:2] = b"\x1f\x8b"
+    e = analyze("f35615.dat", 33_000, bytes(rnd))
+    assert e.detected_type is None and not e.findings
+    gz = b"\x1f\x8b\x08\x00\x00\x00\x00\x00\x00\x03rest"
+    assert analyze("a.gz", 30, gz).detected_type == "GZIP archive"
+    assert analyze("a.dat", 30, gz).findings[0].code == "EXTENSION_MISMATCH"
+    assert analyze("a.dat", 30, b"\x1f\x8b\x08\xe0").detected_type is None
+    assert analyze("a.dat", 30, b"\x1f\x8b\x07\x00").detected_type is None
+    assert not analyze("x.pdf", 2, b"MZ").findings

@@ -27,8 +27,7 @@ def test_versions_and_locations():
 
 def test_compare_texts_and_report():
     a = update.compare("0.2.3", "0.3.0", "rv-timeline")
-    assert a == {"status": "available", "current": "0.2.3", "latest": "0.3.0",
-                 "url": "https://github.com/Panacota96/rv-timeline/releases/tag/v0.3.0"}
+    assert a == {"status": "available", "current": "0.2.3", "latest": "0.3.0", "url": "https://github.com/Panacota96/rv-timeline/releases/tag/v0.3.0"}
     assert "0.3.0 is available" in update.line(a, "rv-timeline")
     assert update.compare("0.10.0", "0.9.9", "rv-timeline")["status"] == "up_to_date"
     assert update.compare("dev", "0.3.0", "rv-timeline")["status"] == "failed"
@@ -36,8 +35,7 @@ def test_compare_texts_and_report():
     assert "firma" in update.banner(a, "RV Timeline", "es")
     assert update.banner(update.compare("0.3.0", "0.3.0", "x"), "X", "en") is None
     r = update.report("rv-timeline", a)
-    assert (r["schema"], r["status"], r["release_page"]) == (
-        update.SCHEMA, "available", "https://github.com/Panacota96/rv-timeline/releases/latest")
+    assert (r["schema"], r["status"], r["release_page"]) == (update.SCHEMA, "available", "https://github.com/Panacota96/rv-timeline/releases/latest")
 
 
 def test_off_switch(monkeypatch):

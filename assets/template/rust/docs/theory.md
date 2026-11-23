@@ -122,8 +122,10 @@ tool reports *Extension does not match content*. A program hidden under a docume
 severity, because opening it could run it.
 
 Limits a court should know: the tool knows 15 common signatures (unknown types are reported as unknown, not as
-suspicious); a file without an extension is not compared; and some signatures are very short (2 bytes), so an
-ordinary text that happens to start with `MZ` would be reported as a program.
+suspicious); a file without an extension is not compared. The two shortest signatures are checked a second
+time, because 2 bytes also occur by chance (1 file in 65,536): a file that starts with `MZ` is reported as a program
+only when the rest of its header is a real Windows or DOS program header, and `1F 8B` counts as GZIP only with
+GZIP's compression byte.
 
 ## A5 Identical copies
 
@@ -343,15 +345,29 @@ hash_reader(r, algos)                                        src/core/src/hash.r
 | 4 | GIF image | 0 | `47 49 46 38` (`GIF8`) | gif | |
 | 5 | ZIP / Office Open XML | 0 | `50 4B 03 04` (`PK..`) | zip docx xlsx pptx odt ods jar apk epub | |
 | 6 | OLE2 (legacy Office, MSG) | 0 | `D0 CF 11 E0 A1 B1 1A E1` | doc xls ppt msg | |
-| 7 | Windows executable (PE) | 0 | `4D 5A` (`MZ`) | exe dll sys scr com efi | yes |
+| 7 | Windows executable (PE) | 0 | `4D 5A` (`MZ`), confirmed (below) | exe dll sys scr com efi | yes |
 | 8 | Linux executable (ELF) | 0 | `7F 45 4C 46` | so bin elf o | yes |
 | 9 | SQLite database | 0 | `SQLite format 3` + `00` | db sqlite sqlite3 | |
 | 10 | 7-Zip archive | 0 | `37 7A BC AF 27 1C` | 7z | |
 | 11 | RAR archive | 0 | `52 61 72 21 1A 07` | rar | |
-| 12 | GZIP archive | 0 | `1F 8B` | gz tgz | |
+| 12 | GZIP archive | 0 | `1F 8B`, confirmed (below) | gz tgz | |
 | 13 | Windows event log (EVTX) | 0 | `ElfFile` + `00` | evtx | |
 | 14 | Windows registry hive | 0 | `72 65 67 66` (`regf`) | dat hve | |
 | 15 | MP4 / QuickTime video | 4 | `66 74 79 70` (`ftyp`) | mp4 m4v mov m4a 3gp heic | |
+
+### Second checks for the 2-byte signatures (`confirm_mz`, `confirm_gzip`)
+
+`MZ` and `1F 8B` are only 2 bytes: random data starts with each in 1 file of 65,536 (a 50,000-file QA intake of
+random data hit both). They are confirmed from the first 4 KiB and the file size before a type is reported:
+
+| Signature | Reported as | When |
+| --- | --- | --- |
+| `MZ` | Windows executable (PE) | the 4-byte offset at `0x3C` (`e_lfanew`, ≥ `0x40`) points at `PE 00 00` |
+| `MZ` | Windows executable (PE, header after the first 4 KiB, not checked) | that offset points past the first 4 KiB but inside the file and below 256 MiB (the Windows loader's limit): still reported, so a moved header cannot hide a program |
+| `MZ` | DOS executable (MZ) | no PE header, but the DOS header is self-consistent: bytes on the last page < 512, at least one page, header ≥ 2 paragraphs and within the image, image length ≤ file size |
+| `MZ` | — (no type) | none of the above |
+| `1F 8B` | GZIP archive | compression method `08` (deflate, the only one defined) and the reserved flag bits (`E0`) clear (RFC 1952) |
+| `1F 8B` | — (no type) | otherwise |
 
 ### Annotated example: `examples/sample/evidence/foto-vacaciones.jpg` (112 bytes)
 
@@ -390,8 +406,9 @@ Consequences that matter in court (all from the code, all tested or testable wit
 
 - A program **without an extension** (`invoice`) or with an unlisted one (`notes.md`) gets no finding: the
   comparison needs an extension, and non-executable mismatches need a known or text extension.
-- The PE test is only 2 bytes (`MZ`) and GZIP only 2 bytes (`1F 8B`): a text file `notes.txt` that begins with
-  `MZ` is reported as `EXECUTABLE_CONTENT` (false positive). Confirm with a PE parser before relying on it.
+- `MZ` and `1F 8B` are confirmed by a second check (above): a text that merely begins with `MZ` is no longer a
+  program. A crafted file can still pass the header checks without being a working program: confirm with a PE
+  parser before relying on `EXECUTABLE_CONTENT`.
 - Containers are typed by their outer signature: a `.docx` and a `.jar` are both "ZIP / Office Open XML", so a
   `.jar` renamed `.docx` gives no finding. HEIC and MP4 share `ftyp`.
 - Matching is on the content's first bytes only; the extension is case-insensitive (`.JPG` = `.jpg`).
