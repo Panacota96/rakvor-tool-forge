@@ -39,6 +39,7 @@ flowchart LR
 | v1.4.1 | `e6c9afc74801e7e4a68c955dbb384db125d51ae1` (the independent Python checker `tests/verify_chain.py` re-hashes recorded outputs too; identical in both templates) |
 | v1.5.0 | `84748c6505f40a60bbf570bebd292dc36efff496` (validator `input_mode: collection` for live-response tools such as RV Triage: `--source`, package checked against `expected_hashes.csv`, no case folder) |
 | v1.6.0 | `3d5284be2a523bad2ef4498cce6647b8388139f9` (Rust template off chrono: shared time.rs with an exact UTC formatter and chrono's RFC 3339 grammar, golden-tested; deny.toml drops RUSTSEC-2026-0555) |
+| v1.7.0 | `ba7de0aecd20218794330ed327096d30cc75a2e4` (release check in both templates: shared update.rs / core/update.py, `update-check`, the GUI start-up banner; the validator checks the command and its off switch) |
 
 ```bash
 git init -q <tmp>/forge && git -C <tmp>/forge fetch -q --depth 1 https://github.com/Panacota96/rakvor-tool-forge <commit>
