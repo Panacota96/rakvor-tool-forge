@@ -72,19 +72,19 @@ def version_triple(v: str) -> tuple[int, int, int] | None:
 
 
 def version_from_location(location: str, tool: str) -> str | None:
-    path = location[len("https://github.com"):] if location.startswith("https://github.com") else location
+    path = location[len("https://github.com") :] if location.startswith("https://github.com") else location
     prefix = f"/{OWNER}/{tool}/releases/tag/"
     if not path.startswith(prefix):
         return None
-    t = version_triple(path[len(prefix):])
+    t = version_triple(path[len(prefix) :])
     return f"{t[0]}.{t[1]}.{t[2]}" if t else None
 
 
 def compare(current: str, latest: str, tool: str) -> dict:
-    c, l = version_triple(current), version_triple(latest)
-    if c is None or l is None:
+    c, lat = version_triple(current), version_triple(latest)
+    if c is None or lat is None:
         return {"status": "failed", "current": current, "reason": f"cannot compare versions {current!r} and {latest!r}"}
-    if l > c:
+    if lat > c:
         return {"status": "available", "current": current, "latest": latest, "url": release_page(tool, latest)}
     return {"status": "up_to_date", "current": current, "latest": latest}
 
@@ -99,7 +99,7 @@ def latest_version(tool: str, agent: str) -> str:
     if not re.fullmatch(r"rv-[a-z0-9]+(-[a-z0-9]+)*", tool):
         raise ValueError(f"not a Rakvor tool name: {tool!r}")
     opener = urllib.request.build_opener(_NoRedirect)
-    req = urllib.request.Request(latest_page(tool), headers={"User-Agent": agent}, method="GET")
+    req = urllib.request.Request(latest_page(tool), headers={"User-Agent": agent}, method="GET")  # noqa: S310 - fixed https URL
     try:
         with opener.open(req, timeout=TIMEOUT) as r:  # noqa: S310 - fixed https URL
             raise ValueError(f"unexpected answer from github.com: HTTP {r.status}")
@@ -154,8 +154,10 @@ def banner(c: dict, title: str, lang: str) -> str | None:
     if lang == "es":
         return f"Hay una versión nueva de {title}: {latest} (usted usa {current}). Descárguela y verifique su firma antes de usarla."
     if lang == "fr":
-        return (f"Une nouvelle version de {title} est publiée : {latest} (vous utilisez {current}). "
-                "Téléchargez-la et vérifiez sa signature avant de l'utiliser.")
+        return (
+            f"Une nouvelle version de {title} est publiée : {latest} (vous utilisez {current}). "
+            "Téléchargez-la et vérifiez sa signature avant de l'utiliser."
+        )
     return f"A new release of {title} is published: {latest} (you are using {current}). Download it and verify its signature before use."
 
 

@@ -52,26 +52,62 @@ SIGNATURES = [
 TEXT_EXTENSIONS = ("txt", "csv", "log", "xml", "json", "html")
 
 
-def detect(head: bytes):
+def _le16(h: bytes, at: int) -> int | None:
+    return int.from_bytes(h[at : at + 2], "little") if len(h) >= at + 2 else None
+
+
+def confirm_mz(h: bytes, size: int) -> str | None:
+    """`MZ` (1 in 65,536 for random data): a PE when `PE\\0\\0` is at the offset stored at 0x3C, or when that offset
+    points past the bytes read but inside the file (the loader accepts up to 256 MiB: a moved header cannot hide an
+    executable); else a DOS executable when the DOS header is self-consistent; else not an executable."""
+    if len(h) >= 0x40:
+        lfanew = int.from_bytes(h[0x3C:0x40], "little")
+        if lfanew >= 0x40 and h[lfanew : lfanew + 4] == b"PE\x00\x00":
+            return "Windows executable (PE)"
+        if 0x40 <= lfanew < 0x1000_0000 and lfanew + 4 <= size and lfanew + 4 > len(h):
+            return "Windows executable (PE, header after the first 4 KiB, not checked)"
+    last, pages, hdr = _le16(h, 2), _le16(h, 4), _le16(h, 8)
+    if last is None or pages is None or hdr is None or pages < 1:
+        return None
+    image = (pages - 1) * 512 + (512 if last == 0 else last)
+    return "DOS executable (MZ)" if last < 512 and hdr >= 2 and hdr * 16 <= image <= size else None
+
+
+def confirm_gzip(h: bytes, size: int) -> str | None:
+    """`1F 8B`: gzip only with compression method 8 (deflate) and the reserved flag bits clear (RFC 1952)."""
+    return "GZIP archive" if len(h) >= 4 and h[2] == 8 and h[3] & 0xE0 == 0 else None
+
+
+# Second checks for the short magics that random data also matches.
+CONFIRM = {"Windows executable (PE)": confirm_mz, "GZIP archive": confirm_gzip}
+
+
+def detect(head: bytes, size: int = 0):
+    """(signature, detected name) of the first matching signature, or None."""
     for sig in SIGNATURES:
-        _, off, magic, _, _ = sig
+        name, off, magic, _, _ = sig
         if head[off : off + len(magic)] == magic:
-            return sig
+            check = CONFIRM.get(name)
+            found = check(head, size) if check else name
+            if found:
+                return sig, found
     return None
 
 
 def analyze(file_name: str, size: int, head: bytes) -> Analysis:
     suffix = PurePath(file_name).suffix
     ext = suffix[1:].lower() if suffix else None
-    sig = detect(head)
+    hit = detect(head, size)
+    sig, found = hit if hit else (None, None)
     findings: list[Finding] = []
     if size == 0:
         findings.append(Finding("EMPTY_FILE", "info"))
     if sig and ext:
-        name, _, _, exts, executable = sig
+        _, _, _, exts, executable = sig
+        name = found
         if ext not in exts:
             if executable:
                 findings.append(Finding("EXECUTABLE_CONTENT", "high", {"detected": name, "extension": ext}))
             elif any(ext in s[3] for s in SIGNATURES) or ext in TEXT_EXTENSIONS:
                 findings.append(Finding("EXTENSION_MISMATCH", "medium", {"detected": name, "extension": ext}))
-    return Analysis(sig[0] if sig else None, ext, findings)
+    return Analysis(found, ext, findings)

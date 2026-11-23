@@ -485,7 +485,7 @@ class MainWindow(QMainWindow):
             self.warn_list.addItems(s.warnings)
 
 
-def _show_update(w: "MainWindow", check) -> None:
+def _show_update(w: MainWindow, check) -> None:
     if check.result is None:
         return
     w._update_timer.stop()
@@ -494,7 +494,7 @@ def _show_update(w: "MainWindow", check) -> None:
     w.render_update()
 
 
-def start_update_check(w: "MainWindow") -> None:
+def start_update_check(w: MainWindow) -> None:
     """The start-up release check (notify only; RV_NO_UPDATE_CHECK=1 turns it off), polled twice a second."""
     from ..core import update
 

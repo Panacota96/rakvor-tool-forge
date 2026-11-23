@@ -83,8 +83,12 @@ def test_release_banner_follows_the_interface_language(qapp):
     check's result is set by hand; a window built by a test never starts the check)."""
     w = MainWindow([])
     assert not w.update_note.isVisibleTo(w)
-    w.update_result = {"status": "available", "current": "0.1.0", "latest": "0.2.0",
-                       "url": "https://github.com/Panacota96/rv-hashinv/releases/tag/v0.2.0"}
+    w.update_result = {
+        "status": "available",
+        "current": "0.1.0",
+        "latest": "0.2.0",
+        "url": "https://github.com/Panacota96/rv-hashinv/releases/tag/v0.2.0",
+    }
     w.render_update()
     assert w.update_note.isVisibleTo(w) and "A new release" in w.update_note.text()
     w.ui_lang.setCurrentIndex([w.ui_lang.itemData(i) for i in range(w.ui_lang.count())].index("fr"))
