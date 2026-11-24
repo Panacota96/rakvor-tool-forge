@@ -22,6 +22,7 @@ flowchart LR
 | `scripts/validate_project.py` | the contract check (`--run --tests`, `--json`) |
 | `scripts/decision_matrix.py` | language-council ADR |
 | `scripts/pack_templates.py` | packs `assets/template/<profile>/` into `assets/template-<profile>.tar.gz.b64` |
+| `scripts/install_team.py` | installs the development team (`team/`: agents, the `rakvor-team` skill, RULES.md) into a workspace's `.claude` |
 | `assets/template/rust` | Profile A reference project (rv-hashinv, release state reset to 0.1.0) |
 | `assets/template/python` | Profile B reference project |
 | `evals/` | skill evals |
