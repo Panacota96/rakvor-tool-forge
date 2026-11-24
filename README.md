@@ -60,5 +60,7 @@ python <tmp>/forge/scripts/validate_project.py <parent>/rv-x --run --tests
 4. `python scripts/pack_templates.py`, commit, push, add the version and commit to the table above, and point
    `SKILL.md` ("Get the current forge first") at the new commit.
 
-The reference tool's licence and admissibility texts are drafts pending a lawyer's review. Templates contain no
+Tools are licensed under PolyForm Noncommercial 1.0.0 (`assets/licence/`, verbatim, under a `Required Notice:` line);
+commercial use needs a licence from Rakvor (`COMMERCIAL.md`). Rakvor's licensing texts (`COMMERCIAL.md`, `NOTICE`) and
+the admissibility texts are drafts pending a lawyer's review. Templates contain no
 private keys: the signing root under `packaging/signing/` is the public certificate only.

@@ -56,7 +56,7 @@ flowchart LR
 | Reports | `statistics.*` + per item `items/NNNNN-name/technical.*`, `summary.*` and `custody.*`, each JSON + HTML + PDF, EN/ES/FR; findings say what they show **and what they do not prove**; limitations; name lists capped so 50k-file runs stay small |
 | Trust (on by default) | RFC 3161 timestamp of the audit chain head (`--tsa-url`, offline → `timestamp_pending` + `timestamp <logdir>` later); PDFs signed with the examiner's `.p12` (`--sign-cert`, password from env or prompt, never logged); custody form per item for `--jurisdiction co` (ES, Fiscalía style) or `fr` (FR, scellés) plus English; code signing in `release.yml` guarded by secrets |
 | Brand | Rakvor palette, placeholder RV mark, descriptor + tagline from i18n `brand`; dark header band on light printable pages; dark GUI theme; installer/exe icon |
-| Repo | README, CHANGELOG (Keep a Changelog), CONTRIBUTING, LICENSE (Rakvor source-auditable, `assets/licence/`), NOTICE with third-party licences, SECURITY, `deny.toml` (licence allow-list, sources, RustSec advisories), `src/ docs/ tests/ examples/`, ≥1 Mermaid diagram per docs page |
+| Repo | README, CHANGELOG (Keep a Changelog), CONTRIBUTING, LICENSE (PolyForm Noncommercial 1.0.0 verbatim, `assets/licence/`, under a `Required Notice: Copyright <year> Rakvor (<repo URL>)` line), COMMERCIAL.md (commercial-licence terms, EN/ES/FR, draft), NOTICE with the Rakvor credit and third-party licences, SECURITY, `deny.toml` (licence allow-list, sources, RustSec advisories), `src/ docs/ tests/ examples/`, ≥1 Mermaid diagram per docs page |
 | Toolkit | shared case folder (`references/case-folder.md`): `--case-dir`, `--evidence`, `verify-case [--rehash]`; the intake tool (rv-hashinv) registers evidence, every analysis tool re-verifies it against the registry and links its audit chain to the hash-chained case log |
 | Docs | README + architecture/forensic-audit/reports/usage-cli/usage-gui/development/case-folder **and** `docs/theory.md` (Part A plain language, Part B expert), `docs/admissibility.md` (Colombia, France/EU, ISO, US/UK, gaps, examiner checklist), `docs/installation.md`, `docs/usage.md` — English, Markdown + Mermaid, every claim matching the code |
 | CI/CD | tests on ubuntu + windows, lint, dependency advisories (`cargo deny check advisories licenses bans sources`; Python: `pip-audit` over the locked export), docs drift, verifiers; release: portable zip + Inno Setup installer, SHA256SUMS, SBOM, build provenance; release-please + Conventional Commits |
@@ -77,8 +77,9 @@ round, ≤4 questions) only for what is still missing and changes the build:
 
 5. **Jurisdiction** — Colombia (`co`) or France (`fr`) as the default custody form (both stay available per run).
 
-Defaults when unanswered: Rakvor source-auditable licence (tools are used locally, not distributed; customers and
-courts may audit the source — the licence text is a draft pending legal review), reports EN (all three available), sha256, Windows x64, local only, Rakvor
+Defaults when unanswered: PolyForm Noncommercial 1.0.0 (source-available, not open source: anyone may use, study,
+change and share the tool for non-commercial purposes with the credit "RV <Tool> by Rakvor"; commercial use needs a
+written licence from Rakvor, COMMERCIAL.md — Rakvor's licensing texts are drafts to be verified by counsel), reports EN (all three available), sha256, Windows x64, local only, Rakvor
 brand, trust features on, jurisdiction `co`.
 Write the answers into a short CONTEXT block — it is pasted into every later prompt.
 

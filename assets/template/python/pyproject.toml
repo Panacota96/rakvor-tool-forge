@@ -5,8 +5,8 @@ name = "rv-hashinv"
 dynamic = ["version"]
 description = "Evidence inventory for digital forensics: dual hashing, hash-chained audit log, per-item technical and customer reports."
 readme = "README.md"
-license = "LicenseRef-Rakvor-Audit"
-license-files = ["LICENSE", "NOTICE"]
+license = "PolyForm-Noncommercial-1.0.0"
+license-files = ["LICENSE", "COMMERCIAL.md", "NOTICE"]
 authors = [{ name = "Rakvor" }]
 requires-python = ">=3.11"
 classifiers = [

@@ -26,8 +26,8 @@ import tempfile
 from pathlib import Path
 
 REQUIRED_FILES = [
-    "README.md", "CHANGELOG.md", "CONTRIBUTING.md", "LICENSE", "NOTICE", "SECURITY.md", ".gitattributes", ".gitignore",
-    ".forge.json", ".github/workflows/ci.yml", ".github/workflows/release.yml", "packaging/windows/installer.iss",
+    "README.md", "CHANGELOG.md", "CONTRIBUTING.md", "LICENSE", "COMMERCIAL.md", "NOTICE", "SECURITY.md",
+    ".gitattributes", ".gitignore", ".forge.json", ".github/workflows/ci.yml", ".github/workflows/release.yml", "packaging/windows/installer.iss",
     "release-please-config.json", ".release-please-manifest.json",
     "schemas/statistics.schema.json", "schemas/item-technical.schema.json", "schemas/item-summary.schema.json",
     "schemas/item-custody.schema.json", "schemas/case.schema.json", "schemas/registry.schema.json", "tests/fake_tsa.py",
@@ -79,6 +79,23 @@ class Report:
         return [c for c in self.checks if not c["passed"]]
 
 
+POLYFORM_TITLE = "PolyForm Noncommercial License 1.0.0"
+
+
+def licence_ok(text: str) -> bool:
+    """LICENSE is the PolyForm Noncommercial 1.0.0 text, starting with its title line (`# ` optional) or with the
+    licensor's `Required Notice:` line followed by it, and carrying a `Required Notice: Copyright …` line."""
+    lines = [line.strip() for line in text.splitlines() if line.strip()]
+    # The licence body quotes an example notice ("> Required Notice: …"); the licensor's own is a line of its own.
+    notice = any(line.startswith("Required Notice: Copyright") for line in lines)
+    if lines and lines[0].startswith("Required Notice:"):
+        lines = lines[1:]
+    starts = bool(lines) and lines[0].lstrip("# ").strip() == POLYFORM_TITLE
+    headings = {line.lstrip("# ").strip() for line in lines}
+    whole = {"Acceptance", "Noncommercial Purposes", "Definitions"} <= headings  # first and last sections present
+    return starts and whole and notice
+
+
 def read(p: Path) -> str:
     try:
         return p.read_text(encoding="utf-8")
@@ -106,7 +123,9 @@ def static_checks(root: Path, r: Report) -> dict:
           all(k in adm for k in ("Ley 906", "Ley 527", "procédure pénale", "eIDAS", "27037", "27041", "Daubert", "702"))
           and re.search(r"^#+ .*[Gg]ap", adm, re.M) is not None and re.search(r"^#+ .*[Cc]hecklist", adm, re.M) is not None)
     lic = read(root / "LICENSE")
-    r.add("licence is the Rakvor source-auditable licence (local use, audit rights, no redistribution)", "RAKVOR SOURCE-AUDITABLE LICENCE" in lic and "Audit right" in lic)
+    r.add("licence is PolyForm Noncommercial 1.0.0 with Rakvor's Required Notice, and COMMERCIAL.md exists",
+          licence_ok(lic) and (root / "COMMERCIAL.md").is_file(),
+          "" if licence_ok(lic) else "LICENSE must start with 'Required Notice: Copyright …' and/or the PolyForm title line")
     r.add("required files present", not missing, ", ".join(missing))
     dirs = [COLLECTION_SAMPLE if d == "examples/sample/evidence" and input_mode(forge) == "collection" else d
             for d in REQUIRED_DIRS]
