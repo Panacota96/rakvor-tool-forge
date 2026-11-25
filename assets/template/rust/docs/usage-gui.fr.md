@@ -28,7 +28,7 @@ flowchart TD
 | **1. Éléments de preuve** | *Ajouter des fichiers…* et *Ajouter un dossier…* ouvrent les sélecteurs de Windows. Vous pouvez aussi glisser des fichiers ou des dossiers sur la fenêtre (ou sur l'icône de `rv-hashinv-gui.exe` avant son lancement), ou coller un chemin et appuyer sur Entrée. *Inclure les sous-dossiers* est coché par défaut. Retirez une entrée avec **x**. |
 | **2. Algorithmes d'empreinte** | Cochez-en un ou deux. Quand deux sont cochés, les autres sont désactivés ; on ne peut pas décocher le dernier. |
 | **3. Rapports** | Langue (English, Español, Français, ou les trois), dossier de sortie, nom de l'expert (par défaut votre utilisateur Windows), référence du dossier facultative. |
-| **4. Confiance** | *Horodatage* (activé par défaut ; adresse de la TSA modifiable), *Certificate…* pour choisir votre `.p12`/`.pfx` et son mot de passe (gardé en mémoire seulement, jamais journalisé) afin de signer chaque PDF, et *Juridiction* (Colombie / France) pour la fiche de possession. |
+| **4. Confiance** | *Horodatage* (activé par défaut ; adresse de la TSA modifiable), *Certificate…* pour choisir votre `.p12`/`.pfx` et son mot de passe (gardé en mémoire seulement, jamais journalisé) afin de signer chaque PDF, et *Juridiction* (Colombie / France) pour la fiche de traçabilité. |
 | **Langue de l'interface** | Sélecteur en haut à droite : English, Español, Français. Change immédiatement tous les libellés ; indépendant de la langue des rapports. |
 | **Lancer l'analyse / Annuler** | Lancer est actif dès qu'un élément est ajouté. Pendant une exécution, les réglages sont verrouillés et le bouton devient *Annuler*. |
 | **Progression** | Barre selon les octets traités, `fichiers traités / total`, temps écoulé (toujours en mouvement) et temps restant estimé. Le fichier en cours de lecture s'affiche en dessous. |
@@ -38,7 +38,7 @@ flowchart TD
 
 Renseignez **Dossier de l'affaire** dans la section 1 pour travailler dans un dossier partagé de l'affaire (voir
 [case-folder.md](case-folder.md), en anglais). Pour un nouveau dossier, renseignez aussi la **Référence du dossier**
-(et la juridiction de la fiche de possession) : elles sont écrites une seule fois dans `case.json`. Tant qu'un dossier
+(et la juridiction de la fiche de traçabilité) : elles sont écrites une seule fois dans `case.json`. Tant qu'un dossier
 de l'affaire est défini, le **Dossier de sortie** affiche `<case>/runs/rv-hashinv/<RUN-ID>` et n'est pas modifiable,
 et vous pouvez lancer sans ajouter d'élément (chaque élément enregistré est examiné). Après l'exécution, le panneau de
 résultat liste l'**ID d'élément** de chaque élément (E0001…) et son statut (enregistré, vérifié, divergent, absent du

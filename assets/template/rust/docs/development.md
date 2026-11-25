@@ -32,6 +32,9 @@ Note for the docs agent of a tool scaffolded from rv-hashinv:
 - `docs/installation.md`: steps 1–5 and 7–11 are shared (release assets, verification, installer, offline use,
   build from source, uninstall). Rewrite the parts between `forge:domain` markers: native libraries the tool needs,
   and the expected result of the sample run.
+- `docs/quick-guide.md`: rewrite the parts between `forge:domain` markers: the paragraph on what the tool is for
+  (intake here; an analysis tool verifies against the registry instead), the scan options table, and Task 2 (an
+  analysis tool does not register evidence). `src/cli/tests/docs.rs` then checks the result against the binary.
 - Apply the same changes to the `.es.md` and `.fr.md` translations, which carry the same markers.
 
 ```mermaid

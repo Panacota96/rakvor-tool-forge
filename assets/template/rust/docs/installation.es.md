@@ -229,7 +229,9 @@ Una ejecución sin red con el sello de tiempo activado termina igualmente: regis
 estadístico muestra una advertencia. Más tarde, en un equipo que pueda llegar a la TSA, ejecute
 `rv-hashinv timestamp <carpeta de logs>` (vuelve a verificar la cadena y luego agrega `timestamp_obtained`). Para usar
 una TSA interna o cualificada, indique `--tsa-url` (ver
-[admissibility.md](admissibility.md#53-eidas--regulation-eu-9102014-as-amended-by-eu-20241183)). El sistema operativo
+[admissibility.md](admissibility.md#53-eidas--regulation-eu-9102014-as-amended-by-eu-20241183)). El sello de tiempo
+solo es cualificado según eIDAS si la dirección de la TSA es la de un prestador cualificado de servicios de confianza
+(QTSP) inscrito en una lista de confianza de la UE; la dirección por defecto (DigiCert) no lo es. El sistema operativo
 no impone la restricción de red; en un equipo conectado, una regla de salida del Firewall de Windows para
 `rv-hashinv.exe` / `rv-hashinv-gui.exe` que solo permita el servidor de la TSA la impone.
 

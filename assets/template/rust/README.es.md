@@ -51,7 +51,7 @@ flowchart LR
 | **Progreso** | Barra de progreso, tiempo transcurrido, velocidad y tiempo restante estimado (CLI y GUI). Se puede cancelar en cualquier momento. |
 | **Auditable** | Cada acción va a `logs/<RUN-ID>/audit.jsonl`, donde cada entrada lleva el hash de la anterior. `verify-log` detecta cualquier edición. |
 | **Informes** | Un informe estadístico por ejecución y, para **cada archivo**, una revisión técnica y un resumen para el cliente, en HTML, PDF y JSON, en inglés, español o francés. |
-| **Carpeta del caso** | `--case-dir` enlaza las herramientas Rakvor de un caso: rv-hashinv (la herramienta de ingreso) registra cada archivo como `E0001`, `E0002`, … para que las herramientas posteriores prueben que examinaron copias idénticas bit a bit; `verify-case` verifica toda la carpeta. Ver [docs/case-folder.md](docs/case-folder.md) (en inglés). |
+| **Carpeta del caso** | `--case-dir` enlaza las herramientas Rakvor de un caso: rv-hashinv (la herramienta de recepción de evidencia) registra cada archivo como `E0001`, `E0002`, … para que las herramientas posteriores prueben que examinaron copias idénticas bit a bit; `verify-case` verifica toda la carpeta. Ver [docs/case-folder.md](docs/case-folder.md) (en inglés). |
 
 ## Instalación
 
@@ -125,7 +125,7 @@ flowchart TB
 | Página | Para |
 | --- | --- |
 | [docs/quick-guide.es.md](docs/quick-guide.es.md) | Las cinco tareas más comunes (scan, carpeta del caso, verify-log, verify-case, timestamp), cada botón de la GUI, códigos de salida |
-| [docs/usage.es.md](docs/usage.es.md) | Recorrido completo de un caso: ingreso, análisis, `verify-case`, lectura de cada salida, solución de problemas |
+| [docs/usage.es.md](docs/usage.es.md) | Recorrido completo de un caso: recepción, análisis, `verify-case`, lectura de cada salida, solución de problemas |
 | [docs/installation.es.md](docs/installation.es.md) | Instalar y verificar una versión (SHA256SUMS, procedencia, Authenticode), compilar desde el código fuente para auditores |
 | [docs/theory.md](docs/theory.md) | Por qué funciona cada paso: parte en lenguaje sencillo para clientes y tribunales, parte experta con algoritmos y valores reales (en inglés) |
 | [docs/admissibility.md](docs/admissibility.md) | Requisitos de Colombia, Francia/UE, ISO/IEC y EE. UU./Reino Unido frente a la herramienta, lista de brechas, lista de control del perito (en inglés) |
@@ -134,7 +134,7 @@ flowchart TB
 | [docs/architecture.md](docs/architecture.md) | Cómo encajan el motor, la CLI y la GUI (en inglés) |
 | [docs/forensic-audit.md](docs/forensic-audit.md) | Registro de auditoría, cadena de hashes, manejo de evidencia, correspondencia con ISO/IEC 27037 (en inglés) |
 | [docs/reports.md](docs/reports.md) | Tipos de informe, campos, esquemas JSON, idiomas (en inglés) |
-| [docs/case-folder.md](docs/case-folder.md) | Carpeta compartida del caso: registro de evidencia, log del caso, herramientas de ingreso y de análisis, `verify-case` (en inglés) |
+| [docs/case-folder.md](docs/case-folder.md) | Carpeta compartida del caso: registro de evidencia, log del caso, herramientas de recepción y de análisis, `verify-case` (en inglés) |
 | [docs/development.md](docs/development.md) | Compilación, pruebas, CI/CD y publicación de versiones (en inglés) |
 | [docs/release-process.md](docs/release-process.md) | Paquetes para Windows, firma de código y versiones en GitHub, paso a paso (en inglés) |
 | [docs/adr/](docs/adr/) | Decisiones de arquitectura (p. ej. por qué Rust; en inglés) |

@@ -1,6 +1,6 @@
 > La versión de referencia es la inglesa ([usage.md](usage.md)); esta traducción la sigue.
 
-# Guía de uso: del ingreso de la evidencia a un caso verificado
+# Guía de uso: de la recepción de la evidencia a un caso verificado
 
 Esta es la guía completa para el perito. Recorre un caso, explica cada salida, indica cómo leer cada hallazgo y cómo
 probar después que nada cambió. Las listas de opciones no se repiten aquí:
@@ -18,7 +18,7 @@ probar después que nada cambió. Las listas de opciones no se repiten aquí:
 sequenceDiagram
     autonumber
     actor X as Perito
-    participant H as rv-hashinv (ingreso)
+    participant H as rv-hashinv (recepción)
     participant C as Carpeta del caso
     participant P as Herramienta de análisis (p. ej. rv-pdfauth)
     participant T as TSA
@@ -55,7 +55,7 @@ El caso de ejemplo: `CASE-2026-014`, jurisdicción colombiana, perita Ana Ruiz, 
 del ejemplo frente a la TSA local de pruebas (`tests/fake_tsa.py`); las rutas están acortadas.
 
 <!-- forge:domain -->
-### 2.1 Ingreso: registrar la evidencia
+### 2.1 Recepción: registrar la evidencia
 
 ```powershell
 rv-hashinv scan --case-dir D:\cases\CASE-2026-014 --case CASE-2026-014 --jurisdiction co `
@@ -77,11 +77,11 @@ Qué pasó, en orden: la carpeta del caso no existía, así que `case.json` se e
 caso; cada archivo se procesó una vez con SHA-256 y MD5 y se tipificó por sus primeros bytes; los tres archivos se
 registraron como `E0001` (`acta-copia.txt`), `E0002` (`acta.txt`) y `E0003` (`foto-vacaciones.jpg`), ordenados por
 ruta, en `evidence\registry.json` / `.csv`, y `evidence_registered` registró el nuevo SHA-256 del registro en el log
-del caso; los informes y el formato de custodia de cada elemento llevan ahora su ID de evidencia; se selló en el
-tiempo la cabeza de la cadena de auditoría; `run_finished` en el log del caso registró la cabeza final de auditoría de
+del caso; los informes y el formato de custodia de cada elemento llevan ahora su ID de evidencia; se obtuvo el
+sello de tiempo de la cabeza de la cadena de auditoría; `run_finished` en el log del caso registró la cabeza final de auditoría de
 la ejecución.
 
-Repetir el mismo ingreso sobre archivos sin cambios conserva los ID (`registered 3 (new 0)`). Un archivo modificado
+Repetir la misma recepción sobre archivos sin cambios conserva los ID (`registered 3 (new 0)`). Un archivo modificado
 en una ruta registrada recibe un ID nuevo y `REGISTRY_PATH_CONTENT_CHANGED`. Use `-i` varias veces, `-r` para las
 subcarpetas, o `--input-list files.txt` (una ruta por línea, comentarios con `#`, rutas relativas a la carpeta de la
 lista).
@@ -197,7 +197,7 @@ Sin `--case-dir`, `logs\<RUN-ID>\` y `reports\<RUN-ID>\` se crean dentro de `--o
 | Salida | Para | Para qué sirve |
 | --- | --- | --- |
 | `statistics.*` | Perito, abogado | Visión general de la ejecución: quién, cuándo, interfaz, algoritmos, totales y velocidad, hallazgos por severidad y código, elementos por tipo detectado, grupos de duplicados (rutas), la sección de la carpeta del caso (registrados / agregados / verificados / no coinciden / no registrados), estado del sello de tiempo, firmante, cabeza de la cadena de auditoría y número de entradas en el momento en que se escribió |
-| `technical.*` | Perito, perito de la contraparte | Un archivo: ruta, tamaño, fecha de modificación, extensión, tipo detectado, estado, ID de evidencia y fecha de ingreso (carpeta del caso), todos los hashes, hallazgos con *lo que muestra / lo que no demuestra*, método, entradas de auditoría `#primera–#última`, limitaciones |
+| `technical.*` | Perito, perito de la contraparte | Un archivo: ruta, tamaño, fecha de modificación, extensión, tipo detectado, estado, ID de evidencia y "Registrado en la recepción (UTC)" (carpeta del caso), todos los hashes, hallazgos con *lo que muestra / lo que no demuestra*, método, entradas de auditoría `#primera–#última`, limitaciones |
 | `summary.*` | Cliente | Estado en lenguaje sencillo, la huella principal, los hallazgos en una frase cada uno, el siguiente paso |
 | `custody.*` | Registro de custodia | Formato de la jurisdicción (en español para `co`, en francés para `fr`) + copia en inglés, prellenado desde la ejecución, con 6 filas de traspaso en blanco para firmar. Es un registro interno, que se usa **junto con** el formato oficial ([admissibility.md](admissibility.md#consolidated-gap-list) G9) |
 | `audit.jsonl` / `audit.log` | Verificación | Cada acción, encadenada por hashes / lo mismo, legible (no es la fuente autorizada) |
@@ -205,7 +205,7 @@ Sin `--case-dir`, `logs\<RUN-ID>\` y `reports\<RUN-ID>\` se crean dentro de `--o
 | `environment.json` | Reproducibilidad | Herramienta, compilador, versión de cada dependencia, SO, equipo, usuario, línea de comandos (o ajustes de la GUI) |
 | `timestamp-NNNNN.tsr` / `.json` | Verificación | Respuesta RFC 3161 para la entrada de auditoría NNNNN, y su resumen |
 | `case.json`, `case-log.jsonl` | Verificación | Identidad del caso (escrita una vez); cada ejecución de herramienta sobre el caso, cambios del registro, cabezas finales de auditoría |
-| `evidence\registry.json` / `.csv` | Todos | La lista de evidencia del caso: ID, ruta en el ingreso, tamaño, hashes, qué ejecución la registró y cuándo |
+| `evidence\registry.json` / `.csv` | Todos | La lista de evidencia del caso: ID, ruta en la recepción, tamaño, hashes, qué ejecución la registró y cuándo |
 
 **Estado y siguiente paso por elemento:** `problem` (un hallazgo alto: no se apoye en el archivo hasta que se
 explique), `attention` (medio o bajo: revíselo con el perito), `ok` (solo informativo). **El código de salida 3**
@@ -225,13 +225,13 @@ concluir" es la extralimitación que hay que evitar en un informe. El texto exac
 | `EMPTY_FILE` (informativa) | Si el origen conserva el archivo con contenido; el tamaño en la adquisición | Que se haya vaciado a propósito |
 | `DUPLICATE` (informativa) | El grupo en `statistics.*` (rutas) y `hashes.csv`; verifique que el algoritmo principal sea SHA-256 | Quién copió el archivo, cuándo, o cuál copia es la original |
 | `UNREADABLE` (alta) | El error del SO (permisos, bloqueos, longitud de la ruta); vuelva a adquirir y a ejecutar; los elementos ilegibles **no** se registran | Que el archivo esté dañado o haya sido ocultado |
-| `REGISTRY_PATH_CONTENT_CHANGED` (media) | Ambos ID de evidencia en `registry.csv`; qué ejecución registró cada uno; cómo cambió el origen entre ingresos | Cuál versión es la original, o por qué cambió |
+| `REGISTRY_PATH_CONTENT_CHANGED` (media) | Ambos ID de evidencia en `registry.csv`; qué ejecución registró cada uno; cómo cambió el origen entre recepciones | Cuál versión es la original, o por qué cambió |
 <!-- /forge:domain -->
 
 | Código (carpeta del caso, herramientas de análisis) | Verificar después | No concluir |
 | --- | --- | --- |
-| `EVIDENCE_HASH_MISMATCH_WITH_CASE` (alta) | Hash esperado y real en el hallazgo; vuelva a calcular a mano el hash del archivo y de la copia de ingreso; revise el almacenamiento, las transferencias y quién tuvo acceso desde el ingreso (log del caso) | Quién lo cambió, cuándo, o que haya sido deliberado |
-| `EVIDENCE_NOT_IN_CASE_REGISTRY` (media) | Si el archivo debía pasar por el ingreso; regístrelo (ejecución de ingreso) si es evidencia nueva | Que el archivo esté alterado o sea irrelevante |
+| `EVIDENCE_HASH_MISMATCH_WITH_CASE` (alta) | Hash esperado y real en el hallazgo; vuelva a calcular a mano el hash del archivo y de la copia de la recepción; revise el almacenamiento, las transferencias y quién tuvo acceso desde la recepción (log del caso) | Quién lo cambió, cuándo, o que haya sido deliberado |
+| `EVIDENCE_NOT_IN_CASE_REGISTRY` (media) | Si el archivo debía pasar por la recepción; regístrelo (ejecución de recepción) si es evidencia nueva | Que el archivo esté alterado o sea irrelevante |
 
 ## 5. Trabajar sin carpeta del caso
 
@@ -429,7 +429,7 @@ Con la ejecución de ejemplo (3 elementos, un idioma) se verifican 38 archivos; 
 | `… is not a case folder yet: give --case ID (and --jurisdiction) to create it` | Primera ejecución en una carpeta del caso nueva: agregue `--case` |
 | `the case folder … belongs to case X, not Y` | Carpeta equivocada o `--case` equivocado; omita `--case` después de la creación |
 | `evidence id(s) not in the case registry: E0042` | Revise `evidence\registry.csv`; los ID son `E` + número (`e7` = `E0007`) |
-| `--evidence needs an existing case folder with a registry` | Haga primero el ingreso |
+| `--evidence needs an existing case folder with a registry` | Haga primero la recepción |
 | `refusing to extend a broken case (…)` / `the case folder … fails verification` | Ejecute `verify-case`; investigue qué cambió; **no repare** a mano un log del caso: abra una carpeta del caso nueva y documente por qué |
 | `the case log is locked by <tool> run <id> (since …)` | Otra herramienta está escribiendo; espere y vuelva a ejecutar |
 | `stale case lock … held by … for more than 10 minutes` | Asegúrese de que ninguna herramienta Rakvor esté trabajando en el caso, luego borre `case-log.lock` a mano (nunca es automático) y anótelo en el expediente del caso |

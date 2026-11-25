@@ -232,7 +232,10 @@ Une exécution hors ligne avec l'horodatage activé se termine quand même : ell
 rapport statistique affiche un avertissement. Plus tard, sur un poste qui peut joindre la TSA, lancez
 `rv-hashinv timestamp <dossier des journaux>` (la commande revérifie la chaîne, puis ajoute `timestamp_obtained`).
 Pour utiliser une TSA interne ou qualifiée, indiquez `--tsa-url` (voir
-[admissibility.md](admissibility.md#53-eidas--regulation-eu-9102014-as-amended-by-eu-20241183)). La restriction
+[admissibility.md](admissibility.md#53-eidas--regulation-eu-9102014-as-amended-by-eu-20241183)). Malgré le libellé
+de la GUI, l'horodatage n'est qualifié au sens d'eIDAS que si l'adresse est celle d'un prestataire de services de
+confiance qualifié (QTSP) inscrit sur une liste de confiance de l'UE ; l'adresse par défaut (DigiCert) ne l'est pas.
+La restriction
 réseau n'est pas imposée par le système ; sur un poste connecté, une règle sortante du pare-feu Windows pour
 `rv-hashinv.exe` / `rv-hashinv-gui.exe` n'autorisant que le serveur de la TSA l'impose.
 

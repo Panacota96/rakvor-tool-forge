@@ -1,7 +1,8 @@
 //! The worked examples in each command's `--help` (EXAMPLES:) really work: they run, in a temporary folder,
 //! against copies of the repository's sample evidence. The sample paths of the examples (D:\evidence,
-//! E:\CASE-014, the example run id, ...) are mapped to that folder. Examples that need the network (a TSA for
-//! `timestamp`) are only parsed, here and in the unit test of src/main.rs.
+//! E:\CASE-014, the example run id, ...) are mapped to that folder. Every subcommand that `docs-cli` documents,
+//! plus `docs-cli` itself, is run; the only exceptions are in PARSE_ONLY (they need the network) and are parsed by
+//! the unit test of src/main.rs, which also fails when a hidden subcommand is added that this list does not see.
 
 use assert_cmd::Command;
 use rv_hashinv_core::{CASE_ROLE, CaseRole, RunConfig, run};
@@ -9,6 +10,8 @@ use std::path::{Path, PathBuf};
 use std::sync::atomic::AtomicBool;
 
 const TOOL: &str = "rv-hashinv";
+/// Subcommands whose examples are not run here, with the reason. They are parsed by the unit test in src/main.rs.
+const PARSE_ONLY: &[(&str, &str)] = &[("timestamp", "needs an RFC 3161 TSA on the network")];
 /// The run id the examples use; replaced by a real run id of the same folder.
 const EXAMPLE_RUN: &str = "20261019T101500Z-a1b2c3";
 
@@ -169,17 +172,27 @@ fn help_examples_run_against_the_sample_evidence() {
     )
     .unwrap();
 
-    // Scans first (they create the runs and the case the other examples verify).
-    let order = [
-        "scan",
-        "verify-log",
-        "verify-case",
-        "self-test",
-        "update-check",
-        "describe",
-    ];
+    // Every documented subcommand (docs-cli lists them; scan comes first, so its runs and case exist before the
+    // verify examples), then docs-cli itself (hidden from the list, its example only prints).
+    let prefix = format!("## {} ", TOOL);
+    let docs = bin(t).arg("docs-cli").output().unwrap();
+    let mut order: Vec<String> = String::from_utf8_lossy(&docs.stdout)
+        .lines()
+        .filter_map(|l| l.strip_prefix(&prefix).map(str::to_string))
+        .collect();
+    assert_eq!(
+        order.first().map(String::as_str),
+        Some("scan"),
+        "{:?}",
+        order
+    );
+    order.push("docs-cli".into());
     let mut ran = 0;
-    for sub in order {
+    for sub in &order {
+        let sub = sub.as_str();
+        if PARSE_ONLY.iter().any(|(p, _)| *p == sub) {
+            continue;
+        }
         let lines = examples(&help(sub));
         assert!(!lines.is_empty(), "`{} {}` has no EXAMPLES", TOOL, sub);
         for line in lines {
@@ -202,7 +215,7 @@ fn help_examples_run_against_the_sample_evidence() {
             ran += 1;
         }
     }
-    assert!(ran >= 14, "{} examples ran", ran);
+    assert!(ran >= 15, "{} examples ran", ran);
     // The case example registered the sample (3 files) and the re-examination found them again.
     let registry = std::fs::read_to_string(t.join("CASE-014/evidence/registry.json")).unwrap();
     assert!(registry.contains("E0003"), "{}", registry);

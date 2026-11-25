@@ -1,5 +1,6 @@
 # Quick guide
 
+<!-- forge:domain -->
 RV HashInv is the intake tool of the Rakvor suite. It reads each piece of evidence you give it (one file, a
 folder or a list of files) without changing it. It hashes each file with one or two algorithms, detects the real
 file type from the first bytes, and flags anomalies: empty files, extensions that do not match the content,
@@ -8,6 +9,7 @@ every action in a hash-chained audit log. Its findings are **signals, not verdic
 and what it does not prove. A file without findings is not proven authentic, and a finding does not show who
 changed a file, when, or why. This page covers the five common tasks. The full guide is [usage.md](usage.md), and
 every option is in [usage-cli.md](usage-cli.md).
+<!-- /forge:domain -->
 
 ```mermaid
 flowchart LR
@@ -41,6 +43,7 @@ then written to the run's audit log as a `ui_*` entry when the run starts.
 | **Add files…** | Opens the Windows file picker and adds the chosen files to the evidence list. | `ui_input_added` (one per file) |
 | **Add folder…** | Adds a whole folder. | `ui_input_added` |
 | **Add path** | Adds the path typed in the box next to it (pressing Enter does the same). | `ui_input_added` |
+| Drag and drop | Files or folders dropped onto the window are added to the evidence list, as with **Add files…**. | `ui_input_added` |
 | **x** (next to an entry) | Removes that entry from the evidence list. | `ui_input_removed` |
 | **Include subfolders** | On by default: the folders are read with their subfolders. | `ui_recursive_changed` |
 | **Browse…** next to **Case folder** | Chooses the shared case folder. The output folder then becomes `<case>/runs/rv-hashinv/<RUN-ID>` and you can no longer edit it. | `ui_case_dir_changed` |
@@ -51,6 +54,12 @@ then written to the run's audit log as a `ui_*` entry when the run starts.
 | **Cancel** | Stops after the file being read and writes partial reports. | `item_cancelled`, `run_cancelled` |
 | **Open report** | Opens the statistics report (`statistics.<LANG>.html`) of the finished run. | Nothing |
 | **Open log folder** | Opens the run's `logs/<RUN-ID>` folder. | Nothing |
+| **Examiner** and **Case ID** (text fields) | The examiner's name (default: your Windows user) and an optional case reference. | Nothing until the run: the examiner is written in every audit entry and report, the case ID on the reports |
+| **Evidence IDs** (result panel) | After a run in a case folder, lists each item's evidence id (E0001…) and its status. Read-only. | Nothing |
+| **Warnings** (result panel) | Lists the errors met during the run. Read-only. | Nothing here: the run logs each error as `item_error` |
+
+The timestamp is eIDAS-qualified only if the TSA address is that of a qualified trust service provider (QTSP) on an EU
+trusted list; the default address (DigiCert) is not one.
 
 The selectors (hash algorithms, report language, interface language, custody form) are recorded too:
 `ui_hash_selection_changed`, `ui_language_changed`, `ui_interface_language_changed` and `ui_jurisdiction_changed`.
@@ -58,21 +67,22 @@ The selectors (hash algorithms, report language, interface language, custody for
 ## Task 1: Scan a file or a folder
 
 1. Check the build once on this PC: `rv-hashinv self-test` must print `PASS` for every algorithm (exit code 0).
-2. Run the scan on a verified copy of the evidence, never on the original media:
+2. Run the scan on a verified copy of the evidence, never on the original media. Leave out `--no-timestamp` when the
+   PC can reach the TSA: the run then also obtains the timestamp (`timestamp: ok …`).
 
    ```powershell
-   rv-hashinv scan -i D:\evidence -r --hash sha256,md5 --lang es --case CASE-2026-014 --actor "Ana Ruiz"
+   rv-hashinv scan -i D:\evidence -r --hash sha256,md5 --lang es --case CASE-2026-014 --actor "Ana Ruiz" --no-timestamp
    ```
 
-3. Read the summary. On the sample evidence it looks like this:
+3. Read the summary. On the sample evidence, offline (`--no-timestamp`), the command above prints:
 
    ```text
-   DONE  run 20261125T181930Z-5aeca1
+   DONE  run 20261125T201247Z-464fbc
      items: 3  bytes: 234  errors: 0  elapsed: 0.1 s
      findings: high 0, medium 1, low 0, info 2
      timestamp: off
-     report: rakvor-out\reports\20261125T181930Z-5aeca1\statistics.en.html
-     logs:   rakvor-out\logs\20261125T181930Z-5aeca1
+     report: rakvor-out\reports\20261125T201247Z-464fbc\statistics.es.html
+     logs:   rakvor-out\logs\20261125T201247Z-464fbc
    ```
 
 4. Open the `report:` file. Then, for each item, open `technical.<LANG>.html` (for the examiner) or
@@ -86,6 +96,7 @@ with exit code 3 is a normal outcome for evidence, not an error: open the items 
 finding states what it shows and what it does not prove. `timestamp: pending` means that the authority could not be
 reached (see Task 5).
 
+<!-- forge:domain -->
 Scan options:
 
 | Option | What it sets |
@@ -106,9 +117,11 @@ Scan options:
 | `--sign-pass-env` | The environment variable that holds its password (default `RV_SIGN_PASSWORD`). |
 | `--case-dir` | The shared case folder (Task 2). |
 | `--evidence` (`-E`) | Registered evidence ids to examine again (Task 2). |
+<!-- /forge:domain -->
 
 ## Task 2: Scan into a case folder
 
+<!-- forge:domain -->
 1. Choose one folder for the case, on the case volume, for example `D:\cases\CASE-2026-014`.
 2. Run the intake. The first run creates the case, so give `--case` and `--jurisdiction`:
 
@@ -132,21 +145,22 @@ Scan options:
 content changed gets a new id and the finding `REGISTRY_PATH_CONTENT_CHANGED`. Exit code 3 before anything is read
 means that the case folder failed verification: nothing was written to it (run Task 4). Exit code 2 means a usage
 error, for example a folder that belongs to another case.
+<!-- /forge:domain -->
 
 ## Task 3: Verify a run's audit log
 
 1. Point `verify-log` at the run's log folder (or at the `audit.jsonl` in it):
 
    ```powershell
-   rv-hashinv verify-log rakvor-out\logs\20261125T181930Z-5aeca1
+   rv-hashinv verify-log rakvor-out\logs\20261125T201247Z-464fbc
    ```
 
 2. Read the output:
 
    ```text
-   OK  19 entries, chain intact: rakvor-out/logs/20261125T181930Z-5aeca1\audit.jsonl
+   OK  19 entries, chain intact: rakvor-out\logs\20261125T201247Z-464fbc\audit.jsonl
        truncation not detectable without a timestamp or case record
-       outputs: 38 verified of 38 recorded (sha256)
+       outputs: 38 verified of 38 recorded (md5, sha256)
    ```
 
 3. If the run has a timestamp, add `--tsa-ca <TSA roots.pem>` to also check the TSA certificate chain against the
@@ -219,7 +233,7 @@ authentic.
 | Code | Meaning | Returned by |
 | --- | --- | --- |
 | 0 | Completed; no high-severity finding (verification commands: everything checked is intact). | every command |
-| 1 | Runtime error: input not found, output not writable, case log locked, TSA unreachable, not a case folder, a failed self-test, or an update check that could not be made. | `scan`, `verify-log`, `verify-case`, `timestamp`, `self-test`, `update-check` |
+| 1 | Runtime error: input not found, output not writable, case log locked, TSA unreachable (`timestamp` only; `scan` shows `timestamp: pending` and goes on), not a case folder, a failed self-test, or an update check that could not be made. | `scan`, `verify-log`, `verify-case`, `timestamp`, `self-test`, `update-check` |
 | 2 | Usage error: unknown option, bad value, more than two algorithms, case folder of another case. | every command (unknown option); `scan` |
 | 3 | At least one high-severity finding, a broken or truncated log, a failed case check, or (for `update-check`) a newer release. | `scan`, `verify-log`, `verify-case`, `timestamp`, `update-check` |
 | 130 | Cancelled with Ctrl+C: partial reports are written and the cancellation is in the audit log. | `scan` |

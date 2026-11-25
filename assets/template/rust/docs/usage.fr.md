@@ -44,7 +44,7 @@ sequenceDiagram
 | L'outil installé est la version authentique | Question du tribunal : « comment savez-vous quel programme vous avez exécuté ? » | [installation.fr.md](installation.fr.md) étapes 2–4 et 6 |
 | Politique d'empreinte | MD5/SHA-1 seuls ne résistent pas aux collisions | Incluez toujours `sha256` (ou `sha512`) : `--hash sha256,md5` quand un ancien enregistrement utilise MD5 |
 | Horloge | Les heures d'audit viennent de l'horloge du poste | Vérifiez la synchronisation de l'heure Windows avant l'exécution |
-| Juridiction | Choisit la fiche de possession | `--jurisdiction co` (par défaut) ou `fr` ; dans un dossier d'affaire, elle est fixée à la création |
+| Juridiction | Choisit la fiche de traçabilité | `--jurisdiction co` (par défaut) ou `fr` ; dans un dossier d'affaire, elle est fixée à la création |
 | Horodatage | TSA en ligne par défaut | `--no-timestamp` hors ligne, puis `rv-hashinv timestamp` ; `--tsa-url` pour une TSA qualifiée / ECD |
 | Certificat de l'expert | Signe chaque rapport PDF | `--sign-cert examiner.p12` ([signature](#7-signer-les-rapports-avec-le-certificat-de-lexpert)) |
 | Une affaire, un dossier | Tous les outils de l'affaire se relient au même registre et au même journal de l'affaire | Créez le dossier de l'affaire sur le volume de l'affaire, p. ex. `D:\cases\CASE-2026-014` |
@@ -79,7 +79,7 @@ l'affaire ; `run_started` a été ajouté au journal de l'affaire ; chaque fichi
 MD5 et typé d'après ses premiers octets ; les trois fichiers ont été enregistrés sous `E0001` (`acta-copia.txt`),
 `E0002` (`acta.txt`) et `E0003` (`foto-vacaciones.jpg`), triés par chemin, dans `evidence\registry.json` / `.csv`, et
 `evidence_registered` a consigné le nouveau SHA-256 du registre dans le journal de l'affaire ; les rapports et la
-fiche de possession de chaque élément portent désormais son ID ; la tête de la chaîne d'audit a été horodatée ;
+fiche de traçabilité de chaque élément portent désormais son ID ; la tête de la chaîne d'audit a été horodatée ;
 `run_finished` dans le journal de l'affaire a consigné la tête d'audit finale de l'exécution.
 
 Relancer le même enregistrement sur des fichiers inchangés conserve les ID (`registered 3 (new 0)`). Un fichier
@@ -141,7 +141,7 @@ et le code de sortie est 3 ; un fichier inaccessible depuis ce poste est un aver
 ### 2.4 La même chose depuis l'application de bureau
 
 Lancez **RV HashInv**, renseignez **Dossier de l'affaire** dans la section 1 (ainsi que la **Référence du dossier** et
-la juridiction de la fiche de possession pour une nouvelle affaire), ajoutez les éléments (fichiers, dossiers,
+la juridiction de la fiche de traçabilité pour une nouvelle affaire), ajoutez les éléments (fichiers, dossiers,
 glisser-déposer), ou aucun pour réexaminer chaque élément enregistré, cochez un ou deux algorithmes d'empreinte,
 réglez la langue des rapports et l'expert dans *3. Rapports*, l'horodatage et le certificat dans *4. Confiance*, puis
 **Lancer l'analyse**. Le dossier de sortie est déduit du dossier de l'affaire et verrouillé ; le panneau de résultat
@@ -191,7 +191,7 @@ flowchart TB
     R --> I["items/NNNNN-nom/"]
     I --> T["technical.* — expert, expert de la partie adverse"]
     I --> S["summary.* — client"]
-    I --> K["custody.* — trace de possession"]
+    I --> K["custody.* — fiche de traçabilité"]
 ```
 
 Sans `--case-dir`, `logs\<RUN-ID>\` et `reports\<RUN-ID>\` sont créés dans `--out` (par défaut `.\rakvor-out`).
@@ -201,7 +201,7 @@ Sans `--case-dir`, `logs\<RUN-ID>\` et `reports\<RUN-ID>\` sont créés dans `--
 | `statistics.*` | Expert, avocat | Vue d'ensemble de l'exécution : qui, quand, interface, algorithmes, totaux et débit, constatations par gravité et par code, éléments par type détecté, groupes de doublons (chemins), la section du dossier de l'affaire (enregistrés / ajoutés / vérifiés / divergents / non enregistrés), statut de l'horodatage, signataire, tête de la chaîne d'audit et nombre d'entrées au moment de l'écriture |
 | `technical.*` | Expert, expert de la partie adverse | Un fichier : chemin, taille, date de modification, extension, type détecté, statut, ID d'élément et date d'enregistrement (dossier de l'affaire), toutes les empreintes, constatations avec *ce que cela montre / ce que cela ne prouve pas*, méthode, entrées d'audit `#première–#dernière`, limites |
 | `summary.*` | Client | Statut en langage simple, l'empreinte principale, les constatations en une phrase chacune, la prochaine étape |
-| `custody.*` | Trace de possession | Fiche de la juridiction (en espagnol pour `co`, en français pour `fr`) + copie en anglais, préremplie à partir de l'exécution, avec 6 lignes de transfert vierges à signer. C'est une trace interne, utilisée **en complément** du formulaire officiel ([admissibility.md](admissibility.md#consolidated-gap-list) G9) |
+| `custody.*` | Fiche de traçabilité | Fiche de la juridiction (en espagnol pour `co`, en français pour `fr`) + copie en anglais, préremplie à partir de l'exécution, avec 6 lignes de transfert vierges à signer. C'est une trace interne, utilisée **en complément** du formulaire officiel ([admissibility.md](admissibility.md#consolidated-gap-list) G9) |
 | `audit.jsonl` / `audit.log` | Vérification | Chaque action, chaînée par empreintes / la même chose, lisible (ne fait pas foi) |
 | `hashes.csv` | Vérification | Registre des empreintes : `index,path,size,<algo1>[,<algo2>],status,error` |
 | `environment.json` | Reproductibilité | Outil, compilateur, version de chaque dépendance, OS, poste, utilisateur, ligne de commande (ou réglages de la GUI) |
@@ -300,7 +300,7 @@ pas dans le jeton. Conservez la sortie au dossier : c'est la preuve que l'heure 
 
 ## 7. Signer les rapports avec le certificat de l'expert
 
-`--sign-cert <file.p12|.pfx>` signe **chaque rapport PDF** (statistiques, revue technique, synthèse, possession) avec
+`--sign-cert <file.p12|.pfx>` signe **chaque rapport PDF** (statistiques, revue technique, synthèse, traçabilité) avec
 votre propre certificat (clés RSA uniquement). Le mot de passe est lu dans la variable d'environnement nommée par
 `--sign-pass-env` (par défaut `RV_SIGN_PASSWORD`) ou demandé dans le terminal (rien ne s'affiche pendant la saisie). Il
 n'est jamais journalisé ; le journal consigne `signing_certificate_loaded` avec le sujet et le SHA-256 du certificat,

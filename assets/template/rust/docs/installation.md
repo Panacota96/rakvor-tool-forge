@@ -224,7 +224,9 @@ TSA, [src/core/src/trust.rs](../src/core/src/trust.rs)). There is no telemetry o
 An offline run with the timestamp enabled still completes: it logs `timestamp_pending` and the statistics report
 shows a warning. Later, on a machine that can reach the TSA, run `rv-hashinv timestamp <log folder>` (it
 re-verifies the chain, then appends `timestamp_obtained`). To use an internal or qualified TSA, pass `--tsa-url`
-(see [admissibility.md](admissibility.md#53-eidas--regulation-eu-9102014-as-amended-by-eu-20241183)). The network
+(see [admissibility.md](admissibility.md#53-eidas--regulation-eu-9102014-as-amended-by-eu-20241183)). The timestamp is
+eIDAS-qualified only if the TSA address is that of a qualified trust service provider (QTSP) on an EU trusted list;
+the default address (DigiCert) is not one. The network
 restriction is not enforced by the OS; on a connected workstation, a Windows Firewall outbound rule for
 `rv-hashinv.exe` / `rv-hashinv-gui.exe` allowing only the TSA host enforces it.
 

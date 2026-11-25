@@ -1070,6 +1070,22 @@ mod tests {
         assert!(checked >= 15, "{} examples", checked);
     }
 
+    /// tests/examples.rs runs the examples of every subcommand that docs-cli documents (visible ones and
+    /// `describe`) plus `docs-cli`; any other hidden subcommand would be only parsed, so it must be added there.
+    #[test]
+    fn example_runner_sees_every_subcommand() {
+        let mut root = Cli::command();
+        root.build();
+        for sub in root.get_subcommands().filter(|s| s.get_name() != "help") {
+            let name = sub.get_name();
+            assert!(
+                !sub.is_hide_set() || name == "describe" || name == "docs-cli",
+                "hidden subcommand `{}`: run its examples in tests/examples.rs (or list it in PARSE_ONLY there)",
+                name
+            );
+        }
+    }
+
     #[test]
     fn split_args_handles_quotes_and_redirection() {
         assert_eq!(

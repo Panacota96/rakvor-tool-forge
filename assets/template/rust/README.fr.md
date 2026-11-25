@@ -79,7 +79,7 @@ rv-hashinv self-test
 # Analyser un dossier avec SHA-256 + MD5, rapports en espagnol, pour l'affaire CASE-2026-014
 rv-hashinv scan -i D:\evidence -r --hash sha256,md5 --lang es --case CASE-2026-014 --actor "Ana Ruiz"
 
-# Affaire française : fiche de possession en français + anglais, chaque PDF signé avec votre certificat
+# Affaire française : fiche de traçabilité en français + anglais, chaque PDF signé avec votre certificat
 $env:RV_SIGN_PASSWORD = Read-Host -AsSecureString | ConvertFrom-SecureString -AsPlainText
 rv-hashinv scan -i D:\evidence -r --jurisdiction fr --sign-cert C:\certs\examiner.p12 --lang fr
 
