@@ -16,11 +16,14 @@ from rv_hashinv.core.audit import AuditLog, heads, verify  # noqa: E402
 from rv_hashinv.core.trust import (  # noqa: E402
     MAX_RESPONSE,
     TimestampError,
+    build_request,
     load_ca_bundle,
+    parse_response,
     request_timestamp,
     timestamp_head,
     verify_timestamps,
     verify_timestamps_with,
+    verify_token,
 )
 from rv_hashinv.core.verify import verify_log  # noqa: E402
 
@@ -190,6 +193,93 @@ def test_tsa_response_larger_than_1_mib_is_refused():
     finally:
         srv.shutdown()
     assert MAX_RESPONSE == 1 << 20
+
+
+def _der(tag: int, content: bytes) -> bytes:
+    n = len(content)
+    if n < 0x80:
+        head = bytes([tag, n])
+    elif n < 0x100:
+        head = bytes([tag, 0x81, n])
+    else:
+        head = bytes([tag, 0x82, n >> 8, n & 0xFF])
+    return head + content
+
+
+def _crafted_response(digest: bytes, gen_time: bytes, nonce: bytes | None) -> bytes:
+    """A synthetic TimeStampResp (status granted, SignedData with no signer) whose TSTInfo has the raw genTime
+    and nonce given: enough for parse_response, never a token whose signature verifies."""
+    sha256 = _der(0x06, bytes([0x60, 0x86, 0x48, 0x01, 0x65, 0x03, 0x04, 0x02, 0x01]))
+    alg = _der(0x30, sha256 + b"\x05\x00")
+    tst = _der(0x02, b"\x01") + _der(0x06, b"\x2a\x03\x04") + _der(0x30, alg + _der(0x04, digest))
+    tst += _der(0x02, b"\x2a") + _der(0x18, gen_time)
+    if nonce is not None:
+        tst += _der(0x02, nonce)
+    oid_tst = _der(0x06, bytes([0x2A, 0x86, 0x48, 0x86, 0xF7, 0x0D, 0x01, 0x09, 0x10, 0x01, 0x04]))
+    encap = _der(0x30, oid_tst + _der(0xA0, _der(0x04, _der(0x30, tst))))
+    sd = _der(0x30, _der(0x02, b"\x03") + b"\x31\x00" + encap + b"\x31\x00")
+    oid_sd = _der(0x06, bytes([0x2A, 0x86, 0x48, 0x86, 0xF7, 0x0D, 0x01, 0x07, 0x02]))
+    ci = _der(0x30, oid_sd + _der(0xA0, sd))
+    return _der(0x30, _der(0x30, _der(0x02, b"\x00")) + ci)
+
+
+def test_malformed_gen_time_is_an_error():
+    """SEC-HI-01 (same rule as the Rust profile): genTime is checked on its bytes, YYYYMMDDhhmmss[.f…]Z only."""
+    d = b"\x07" * 32
+    assert parse_response(_crafted_response(d, b"20261124120000Z", None), d, None)[0] == "2026-11-24T12:00:00Z"
+    assert parse_response(_crafted_response(d, b"20261020182422.123Z", None), d, None)[0] == "2026-10-20T18:24:22Z"
+    for bad in [
+        "1234567890123éZ".encode(),
+        "20261124120000éZ".encode(),
+        b"20261124120000" + "é".encode() * 150,
+        b"",
+        b"2026112412000Z",
+        b"2026112412Z",
+        b"20261124120000",
+        b"20261124120000.Z",
+        b"20261124120000+0100",
+        b"20261124120000Zx",
+        b"20261324120000Z",
+        b"20261124240000Z",
+        b"20261124120061Z",
+        # Dates that do not exist (Codex on rakvor-tool-forge#24): 30 February, 29 February of a common year
+        # (2025, and 1900: a century that is not a multiple of 400), 31 April, year 0000.
+        b"20260230120000Z",
+        b"20250229120000Z",
+        b"19000229120000Z",
+        b"20260431120000Z",
+        b"00001124120000Z",
+        b"00000101000000Z",
+    ]:
+        with pytest.raises(TimestampError, match="bad genTime"):
+            parse_response(_crafted_response(d, bad, None), d, None)
+        with pytest.raises(TimestampError):
+            verify_token(_crafted_response(d, bad, None), d, None)
+    # Leap days that exist (2024; 2000 is a multiple of 400), month ends, and the first possible year.
+    for good, iso in [
+        (b"20240229120000Z", "2024-02-29T12:00:00Z"),
+        (b"20000229000000Z", "2000-02-29T00:00:00Z"),
+        (b"20260228235959Z", "2026-02-28T23:59:59Z"),
+        (b"20260430120000Z", "2026-04-30T12:00:00Z"),
+        (b"20261231120000Z", "2026-12-31T12:00:00Z"),
+        (b"00010101000000Z", "0001-01-01T00:00:00Z"),
+    ]:
+        assert parse_response(_crafted_response(d, good, None), d, None)[0] == iso, good
+
+
+def test_nonce_is_required_in_the_response_when_sent():
+    """SEC-HI-02: RFC 3161 §2.4.2, a request's nonce must come back unchanged."""
+    d = b"\x09" * 32
+    g = b"20261124120000Z"
+    with pytest.raises(TimestampError, match=r"nonce missing \(possible replay\)"):
+        parse_response(_crafted_response(d, g, None), d, 0x123456)
+    assert parse_response(_crafted_response(d, g, None), d, None)[0] == "2026-11-24T12:00:00Z"
+    assert parse_response(_crafted_response(d, g, b"\x12\x34\x56"), d, 0x123456)[0] == "2026-11-24T12:00:00Z"
+    with pytest.raises(TimestampError, match=r"nonce mismatch \(possible replay\)"):
+        parse_response(_crafted_response(d, g, b"\x12\x34\x57"), d, 0x123456)
+    _, a = build_request(d)
+    _, b = build_request(d)
+    assert a != b and 0 < a < 1 << 127 and 0 < b < 1 << 127
 
 
 def test_every_pdf_is_signed_with_the_examiner_certificate(tmp_path, sample, pki):

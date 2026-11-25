@@ -1349,3 +1349,200 @@ fn python_verifier_agrees_with_verify_log_on_recorded_outputs() {
     rechain(&logs, entries);
     assert_eq!(both_verifiers(&py, &logs).0, 0);
 }
+
+// ---------------------------------------------------------------- crafted RFC 3161 responses (SEC-HI-01, SEC-HI-02)
+
+/// DER TLV (definite length) for the synthetic responses below.
+fn der(tag: u8, content: &[u8]) -> Vec<u8> {
+    let n = content.len();
+    let mut out = vec![tag];
+    if n < 0x80 {
+        out.push(n as u8);
+    } else if n < 0x100 {
+        out.extend([0x81, n as u8]);
+    } else {
+        out.extend([0x82, (n >> 8) as u8, n as u8]);
+    }
+    out.extend_from_slice(content);
+    out
+}
+
+/// A synthetic TimeStampResp (status granted, SignedData with no signer, a TSTInfo with the raw genTime and nonce
+/// given). Synthetic data only: its signature never verifies.
+fn crafted_tsr(digest: &[u8], gen_time: &[u8], nonce: Option<&[u8]>) -> Vec<u8> {
+    let sha256 = der(
+        0x06,
+        &[0x60, 0x86, 0x48, 0x01, 0x65, 0x03, 0x04, 0x02, 0x01],
+    );
+    let alg = der(0x30, &[sha256, vec![0x05, 0x00]].concat());
+    let mut tst = [
+        der(0x02, &[1]),
+        der(0x06, &[0x2a, 0x03, 0x04]),
+        der(0x30, &[alg, der(0x04, digest)].concat()),
+        der(0x02, &[0x2a]),
+        der(0x18, gen_time),
+    ]
+    .concat();
+    if let Some(n) = nonce {
+        tst.extend(der(0x02, n));
+    }
+    let tst_info_oid = der(
+        0x06,
+        &[
+            0x2a, 0x86, 0x48, 0x86, 0xf7, 0x0d, 0x01, 0x09, 0x10, 0x01, 0x04,
+        ],
+    );
+    let econtent = der(0xa0, &der(0x04, &der(0x30, &tst)));
+    let encap = der(0x30, &[tst_info_oid, econtent].concat());
+    let sd = der(
+        0x30,
+        &[der(0x02, &[3]), vec![0x31, 0x00], encap, vec![0x31, 0x00]].concat(),
+    );
+    let signed_data_oid = der(
+        0x06,
+        &[0x2a, 0x86, 0x48, 0x86, 0xf7, 0x0d, 0x01, 0x07, 0x02],
+    );
+    let ci = der(0x30, &[signed_data_oid, der(0xa0, &sd)].concat());
+    der(0x30, &[der(0x30, &der(0x02, &[0])), ci].concat())
+}
+
+/// A one-thread HTTP "TSA" on 127.0.0.1 that answers every request with `reply(digest, nonce)`, the digest and
+/// nonce read from the request (a TimeStampReq as `trust::build_request` writes it).
+fn crafted_tsa(reply: fn(&[u8], &[u8]) -> Vec<u8>) -> String {
+    use std::io::{Read, Write};
+    let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+    let url = format!("http://{}/", listener.local_addr().unwrap());
+    std::thread::spawn(move || {
+        for mut s in listener.incoming().map_while(Result::ok) {
+            let mut buf = Vec::new();
+            let mut chunk = [0u8; 4096];
+            let body = loop {
+                let Ok(n) = s.read(&mut chunk) else {
+                    break None;
+                };
+                if n == 0 {
+                    break None;
+                }
+                buf.extend_from_slice(&chunk[..n]);
+                let Some(h) = buf.windows(4).position(|w| w == b"\r\n\r\n") else {
+                    continue;
+                };
+                let head = String::from_utf8_lossy(&buf[..h]).to_ascii_lowercase();
+                let len: usize = head
+                    .lines()
+                    .find_map(|l| l.strip_prefix("content-length:"))
+                    .and_then(|v| v.trim().parse().ok())
+                    .unwrap_or(0);
+                if buf.len() >= h + 4 + len {
+                    break Some(buf[h + 4..h + 4 + len].to_vec());
+                }
+            };
+            let Some(req) = body else { continue };
+            // messageImprint ends with the OCTET STRING of the SHA-256 digest; the nonce INTEGER follows it.
+            let at = req
+                .windows(2)
+                .position(|w| w == [0x04, 0x20])
+                .expect("imprint");
+            let digest = &req[at + 2..at + 34];
+            let nonce = &req[at + 36..at + 36 + req[at + 35] as usize];
+            let resp = reply(digest, nonce);
+            let _ = s.write_all(
+                format!(
+                    "HTTP/1.1 200 OK\r\nContent-Type: application/timestamp-reply\r\nContent-Length: {}\r\nConnection: close\r\n\r\n",
+                    resp.len()
+                )
+                .as_bytes(),
+            );
+            let _ = s.write_all(&resp);
+        }
+    });
+    url
+}
+
+fn audit_entries(logs: &Path) -> Vec<serde_json::Value> {
+    std::fs::read_to_string(logs.join("audit.jsonl"))
+        .unwrap()
+        .lines()
+        .map(|l| serde_json::from_str(l).unwrap())
+        .collect()
+}
+
+/// SEC-HI-01: a planted `timestamp-*.tsr` whose genTime is not ASCII makes verify-log report a failure (exit 3),
+/// never a panic (exit 101).
+#[test]
+fn planted_token_with_non_ascii_gen_time_fails_verify_log_without_panic() {
+    use rv_hashinv_core::hash::{hash_bytes, hex_decode};
+    let out = tempfile::tempdir().unwrap();
+    bin()
+        .args(["scan", "-i"])
+        .arg(sample())
+        .args(["--progress", "none", "-o"])
+        .arg(out.path())
+        .assert()
+        .code(0);
+    let logs = only_dir(&out.path().join("logs"));
+    let last = audit_entries(&logs).pop().unwrap();
+    let seq = last["seq"].as_u64().unwrap();
+    let digest = hex_decode(last["entry_hash"].as_str().unwrap()).unwrap();
+    let tsr = crafted_tsr(&digest, "1234567890123\u{e9}Z".as_bytes(), None);
+    let file = format!("timestamp-{seq:05}.tsr");
+    std::fs::write(logs.join(&file), &tsr).unwrap();
+    let meta = serde_json::json!({"tsa": "http://127.0.0.1/", "gen_time": "?", "covers_seq": seq,
+        "head": last["entry_hash"], "token_sha256": hash_bytes(&tsr, HashAlgo::Sha256), "file": file});
+    std::fs::write(
+        logs.join(format!("timestamp-{seq:05}.json")),
+        meta.to_string(),
+    )
+    .unwrap();
+    bin()
+        .arg("verify-log")
+        .arg(&logs)
+        .assert()
+        .code(3)
+        .stdout(predicate::str::contains(format!("{file}: bad genTime")));
+}
+
+/// SEC-HI-01 and SEC-HI-02 at scan time: a TSA reply with a malformed genTime, or without the request's nonce,
+/// leaves the timestamp pending and the run finishes (timestamp_pending, then run_finished), never a crash.
+#[test]
+fn tampered_tsa_reply_leaves_the_timestamp_pending_and_the_run_finished() {
+    let non_ascii: fn(&[u8], &[u8]) -> Vec<u8> =
+        |d, n| crafted_tsr(d, "1234567890123\u{e9}Z".as_bytes(), Some(n));
+    let no_nonce: fn(&[u8], &[u8]) -> Vec<u8> = |d, _| crafted_tsr(d, b"20261124120000Z", None);
+    let wrong_nonce: fn(&[u8], &[u8]) -> Vec<u8> =
+        |d, _| crafted_tsr(d, b"20261124120000Z", Some(&[0x12, 0x34]));
+    for (reply, reason) in [
+        (non_ascii, "bad genTime"),
+        (no_nonce, "nonce missing (possible replay)"),
+        (wrong_nonce, "nonce mismatch (possible replay)"),
+    ] {
+        let url = crafted_tsa(reply);
+        let out = tempfile::tempdir().unwrap();
+        bin()
+            .env_remove("RV_NO_TIMESTAMP")
+            .env("NO_PROXY", "127.0.0.1")
+            .args(["scan", "-i"])
+            .arg(sample())
+            .args(["--tsa-url", &url, "--progress", "none", "-o"])
+            .arg(out.path())
+            .assert()
+            .code(0)
+            .stdout(predicate::str::contains("timestamp: pending"));
+        let logs = only_dir(&out.path().join("logs"));
+        let entries = audit_entries(&logs);
+        let pending = entries
+            .iter()
+            .find(|e| e["action"] == "timestamp_pending")
+            .unwrap_or_else(|| panic!("no timestamp_pending ({reason})"));
+        assert!(
+            pending["details"]["reason"]
+                .as_str()
+                .unwrap()
+                .contains(reason),
+            "{pending}"
+        );
+        assert_eq!(entries.last().unwrap()["action"], "run_finished");
+        assert!(!entries.iter().any(|e| e["action"] == "timestamp_obtained"));
+        bin().arg("verify-log").arg(&logs).assert().code(0);
+    }
+}

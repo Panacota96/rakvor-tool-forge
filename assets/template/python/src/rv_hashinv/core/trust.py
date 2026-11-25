@@ -58,7 +58,8 @@ class Timestamp:
 
 
 def build_request(digest: bytes) -> tuple[bytes, int]:
-    nonce = int.from_bytes(os.urandom(8), "big")
+    # 16 bytes from the OS random number generator (same size as the Rust profile), a positive INTEGER.
+    nonce = int.from_bytes(os.urandom(16), "big") >> 1 or 1
     req = tsp.TimeStampReq(
         {
             "version": "v1",
@@ -70,8 +71,32 @@ def build_request(digest: bytes) -> tuple[bytes, int]:
     return req.dump(), nonce
 
 
+def _gen_time_of(raw: bytes) -> str:
+    """genTime as ISO 8601 UTC. RFC 3161 §2.4.2: a GeneralizedTime YYYYMMDDhhmmss[.f…]Z (seconds present,
+    optional fraction, UTC), checked on the raw bytes, same rule as the Rust profile (SEC-HI-01): a local time,
+    an offset, missing seconds or a non-ASCII value is an error. Trailing zeros in the fraction are tolerated.
+    The date must exist in the proleptic Gregorian calendar: year 0001 or later, and a day that the month has
+    (29 February only in a leap year), so 20260230… or year 0000 is an error."""
+    bad = TimestampError("bad genTime (not a GeneralizedTime YYYYMMDDhhmmss[.fff]Z)")
+    digits, rest = raw[:14], raw[14:]
+    if len(digits) != 14 or not all(0x30 <= b <= 0x39 for b in digits):
+        raise bad
+    frac = rest[1:-1]
+    if not (rest == b"Z" or (rest[:1] == b"." and rest[-1:] == b"Z" and frac and all(0x30 <= b <= 0x39 for b in frac))):
+        raise bad
+    d = digits.decode("ascii")
+    year = int(d[0:4])
+    month, day, hour, minute, second = (int(d[i : i + 2]) for i in (4, 6, 8, 10, 12))
+    leap = year % 4 == 0 and (year % 100 != 0 or year % 400 == 0)
+    days_in_month = {1: 31, 2: 29 if leap else 28, 3: 31, 4: 30, 5: 31, 6: 30, 7: 31, 8: 31, 9: 30, 10: 31, 11: 30, 12: 31}
+    if not (year >= 1 and 1 <= day <= days_in_month.get(month, 0) and hour <= 23 and minute <= 59 and second <= 60):
+        raise bad
+    return f"{d[0:4]}-{d[4:6]}-{d[6:8]}T{d[8:10]}:{d[10:12]}:{d[12:14]}Z"
+
+
 def parse_response(der: bytes, digest: bytes, nonce: int | None) -> tuple[str, bytes]:
-    """Returns (gen_time ISO, token DER) or raises TimestampError."""
+    """Returns (gen_time ISO, token DER) or raises TimestampError. With nonce (the request carried one), the
+    response must carry the same nonce: a missing or different one is an error (RFC 3161 §2.4.2)."""
     resp = tsp.TimeStampResp.load(der)
     status = resp["status"]["status"].native
     if status not in ("granted", "granted_with_mods"):
@@ -80,10 +105,14 @@ def parse_response(der: bytes, digest: bytes, nonce: int | None) -> tuple[str, b
     info = token["content"]["encap_content_info"]["content"].parsed
     if info["message_imprint"]["hashed_message"].native != digest:
         raise TimestampError("the token does not cover the requested digest")
-    if nonce is not None and info["nonce"].native not in (None, nonce):
-        raise TimestampError("nonce mismatch (possible replay)")
-    gen = info["gen_time"].native
-    return gen.strftime("%Y-%m-%dT%H:%M:%SZ"), token.dump()
+    gen = _gen_time_of(info["gen_time"].contents or b"")
+    if nonce is not None:
+        got = info["nonce"].native
+        if got is None:
+            raise TimestampError("nonce missing (possible replay)")
+        if got != nonce:
+            raise TimestampError("nonce mismatch (possible replay)")
+    return gen, token.dump()
 
 
 def request_timestamp(digest: bytes, url: str, timeout: float = TIMEOUT_S) -> tuple[str, bytes, bytes]:
