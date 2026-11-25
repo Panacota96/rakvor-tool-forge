@@ -127,6 +127,11 @@ def static_checks(root: Path, r: Report) -> dict:
           licence_ok(lic) and (root / "COMMERCIAL.md").is_file(),
           "" if licence_ok(lic) else "LICENSE must start with 'Required Notice: Copyright …' and/or the PolyForm title line")
     r.add("required files present", not missing, ", ".join(missing))
+    if profile == "rust":
+        guides = [f"docs/quick-guide{s}.md" for s in ("", ".es", ".fr")]
+        no_guide = [g for g in guides if not (root / g).is_file()]
+        r.add("quick guide in English, Spanish and French (docs/quick-guide{,.es,.fr}.md)", not no_guide,
+              ", ".join(no_guide))
     dirs = [COLLECTION_SAMPLE if d == "examples/sample/evidence" and input_mode(forge) == "collection" else d
             for d in REQUIRED_DIRS]
     missing_dirs = [d for d in dirs if not (root / d).is_dir()]

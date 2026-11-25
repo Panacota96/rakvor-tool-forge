@@ -1,9 +1,3 @@
-<!--
-  Template note for the docs agent of a tool scaffolded from rv-hashinv: steps 1–5 and 7–11 are shared (release
-  assets, verification, installer, offline use, build from source, uninstall). Rewrite the parts between
-  forge:domain markers: native libraries the tool needs, and the expected result of the sample run.
--->
-
 # Installation and verification (Windows 10/11)
 
 RV HashInv runs **locally** on the examiner's Windows 10 or 11 PC (x64). It needs no administrator rights, no
@@ -179,8 +173,8 @@ rv-hashinv --version
 rv-hashinv self-test
 ```
 
-`self-test` prints `PASS` for md5, sha1, sha256, sha512, sha3-256 and blake3 (known answers for `"abc"`), exit code
-0. It tests the hash implementations only. Then run the synthetic sample, which exercises type detection,
+`self-test` prints `PASS` for md5, sha1, sha256, sha512, sha3-256 and blake3 (known answers for `"abc"`), with exit
+code 0. It tests the hash implementations only. Then run the synthetic sample, which exercises type detection,
 duplicates, reports and the audit chain:
 
 ```powershell
