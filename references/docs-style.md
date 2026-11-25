@@ -1,8 +1,9 @@
 # Documentation style
 
 Readers: examiners (how to run it), lawyers and clients (what results mean), developers (how to change it), and
-**auditors** — customers, courts and opposing experts who inspect the tool. The tools are used locally by Rakvor and
-not distributed, but they must be auditable, so every claim in the docs must match the code. Language: English.
+**auditors** — customers, courts and opposing experts who inspect the tool. The tools are source-available
+(PolyForm Noncommercial 1.0.0: anyone may inspect, build and run them for non-commercial purposes; commercial use
+needs a licence from Rakvor), so every claim in the docs must match the code. Never call them "open source". Language: English.
 Plain sentences, tables for reference material, **at least one Mermaid diagram per page** (GitHub renders
 them; `mmdc` validates them).
 

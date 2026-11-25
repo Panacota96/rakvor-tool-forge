@@ -56,9 +56,11 @@ python <tmp>/forge/scripts/validate_project.py <parent>/rv-x --run --tests
 2. Refresh `assets/template/<profile>` from the reference (`git archive`, then reset `version.txt` and
    `.release-please-manifest.json` to 0.1.0 and keep the template's CHANGELOG).
 3. Scaffold a throwaway tool and run `validate_project.py --run --tests`, `cargo deny check`, `cargo clippy` and
-   `cargo fmt --check` on it.
+   `cargo fmt --check` on it, and `python scripts/test_scaffold.py` (scaffold.py's own tests).
 4. `python scripts/pack_templates.py`, commit, push, add the version and commit to the table above, and point
    `SKILL.md` ("Get the current forge first") at the new commit.
 
-The reference tool's licence and admissibility texts are drafts pending a lawyer's review. Templates contain no
+Tools are licensed under PolyForm Noncommercial 1.0.0 (`assets/licence/`, verbatim, under a `Required Notice:` line);
+commercial use needs a licence from Rakvor (`COMMERCIAL.md`). Rakvor's licensing texts (`COMMERCIAL.md`, `NOTICE`) and
+the admissibility texts are drafts pending a lawyer's review. Templates contain no
 private keys: the signing root under `packaging/signing/` is the public certificate only.

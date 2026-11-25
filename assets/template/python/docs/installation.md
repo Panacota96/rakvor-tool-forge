@@ -49,7 +49,7 @@ Release assets on the GitHub Releases page of the repository (`rakvor/rv-hashinv
 
 | Asset | What it is |
 | --- | --- |
-| `rv-hashinv-X.Y.Z-windows-x64.zip` | Portable standalone folder: `rv-hashinv.exe`, `rv-hashinv-gui.exe`, the Python runtime and packages compiled by Nuitka, the PySide6/Qt DLLs, README, LICENSE, NOTICE, CHANGELOG, `docs/`, `examples/` |
+| `rv-hashinv-X.Y.Z-windows-x64.zip` | Portable standalone folder: `rv-hashinv.exe`, `rv-hashinv-gui.exe`, the Python runtime and packages compiled by Nuitka, the PySide6/Qt DLLs, README, LICENSE, COMMERCIAL.md, NOTICE, CHANGELOG, `docs/`, `examples/` |
 | `rv-hashinv-X.Y.Z-windows-x64-setup.exe` | Inno Setup installer, per-user (the same folder) |
 | `SHA256SUMS` | SHA-256 of the zip, the installer and the SBOM (`sha256sum` format: `<hash>  ./<file>`) |
 | `sbom.cdx.json` | CycloneDX software bill of materials generated from `uv.lock` (every Python package and version) |
@@ -267,7 +267,7 @@ uv run python packaging/build_windows.py           # dist\rv-hashinv\ : both exe
 [packaging/build_windows.py](../packaging/build_windows.py) compiles the two entry points
 ([packaging/entry/](../packaging/entry/rv_hashinv_cli.py)) with Nuitka `--standalone`, the PySide6 plugin for the GUI,
 the Rakvor icon and version resources, then merges both builds into one folder (shared runtime) and copies README,
-LICENSE, NOTICE and CHANGELOG. The release workflow adds `docs\` and `examples\`.
+LICENSE, COMMERCIAL.md, NOTICE and CHANGELOG. The release workflow adds `docs\` and `examples\`.
 
 ### Reproducing the release hashes
 
