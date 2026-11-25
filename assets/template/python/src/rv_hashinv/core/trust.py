@@ -76,7 +76,8 @@ def _gen_time_of(raw: bytes) -> str:
     optional fraction, UTC), checked on the raw bytes, same rule as the Rust profile (SEC-HI-01): a local time,
     an offset, missing seconds or a non-ASCII value is an error. Trailing zeros in the fraction are tolerated.
     The date must exist in the proleptic Gregorian calendar: year 0001 or later, and a day that the month has
-    (29 February only in a leap year), so 20260230… or year 0000 is an error."""
+    (29 February only in a leap year), so 20260230… or year 0000 is an error. A leap second (:60) exists only
+    at 23:59 UTC, so …235960Z is accepted and …120060Z is an error."""
     bad = TimestampError("bad genTime (not a GeneralizedTime YYYYMMDDhhmmss[.fff]Z)")
     digits, rest = raw[:14], raw[14:]
     if len(digits) != 14 or not all(0x30 <= b <= 0x39 for b in digits):
@@ -89,7 +90,8 @@ def _gen_time_of(raw: bytes) -> str:
     month, day, hour, minute, second = (int(d[i : i + 2]) for i in (4, 6, 8, 10, 12))
     leap = year % 4 == 0 and (year % 100 != 0 or year % 400 == 0)
     days_in_month = {1: 31, 2: 29 if leap else 28, 3: 31, 4: 30, 5: 31, 6: 30, 7: 31, 8: 31, 9: 30, 10: 31, 11: 30, 12: 31}
-    if not (year >= 1 and 1 <= day <= days_in_month.get(month, 0) and hour <= 23 and minute <= 59 and second <= 60):
+    leap_second = second == 60 and hour == 23 and minute == 59
+    if not (year >= 1 and 1 <= day <= days_in_month.get(month, 0) and hour <= 23 and minute <= 59 and (second <= 59 or leap_second)):
         raise bad
     return f"{d[0:4]}-{d[4:6]}-{d[6:8]}T{d[8:10]}:{d[10:12]}:{d[12:14]}Z"
 
@@ -560,8 +562,12 @@ _NAME_KIND = {
 
 
 def _gen_unix(gen_time: str) -> float:
+    """Unix time of an ISO 8601 UTC genTime from _gen_time_of. datetime cannot hold a leap second, so 23:59:60 is
+    counted as 23:59:59 (Unix time has no leap seconds), the same value as the Rust profile's time::rfc3339_unix,
+    which clamps the second to 59."""
     try:
-        return _dt.datetime.fromisoformat(gen_time.replace("Z", "+00:00")).timestamp()
+        at = gen_time[: -len("60Z")] + "59Z" if gen_time.endswith("23:59:60Z") else gen_time
+        return _dt.datetime.fromisoformat(at.replace("Z", "+00:00")).timestamp()
     except ValueError as e:
         raise TimestampError(f"bad genTime {gen_time}: {e}") from e
 

@@ -16,11 +16,13 @@ from rv_hashinv.core.audit import AuditLog, heads, verify  # noqa: E402
 from rv_hashinv.core.trust import (  # noqa: E402
     MAX_RESPONSE,
     TimestampError,
+    _gen_unix,
     build_request,
     load_ca_bundle,
     parse_response,
     request_timestamp,
     timestamp_head,
+    validate_chain,
     verify_timestamps,
     verify_timestamps_with,
     verify_token,
@@ -242,6 +244,10 @@ def test_malformed_gen_time_is_an_error():
         b"20261324120000Z",
         b"20261124240000Z",
         b"20261124120061Z",
+        # A leap second only exists at 23:59 UTC (CR-R018-02).
+        b"20261124120060Z",
+        b"20161231235860Z",
+        b"20161231225960Z",
         # Dates that do not exist (Codex on rakvor-tool-forge#24): 30 February, 29 February of a common year
         # (2025, and 1900: a century that is not a multiple of 400), 31 April, year 0000.
         b"20260230120000Z",
@@ -263,8 +269,25 @@ def test_malformed_gen_time_is_an_error():
         (b"20260430120000Z", "2026-04-30T12:00:00Z"),
         (b"20261231120000Z", "2026-12-31T12:00:00Z"),
         (b"00010101000000Z", "0001-01-01T00:00:00Z"),
+        (b"20161231235960Z", "2016-12-31T23:59:60Z"),
     ]:
         assert parse_response(_crafted_response(d, good, None), d, None)[0] == iso, good
+
+
+def test_leap_second_gen_time_is_usable_for_the_chain():
+    """CR-R018-02: a 23:59:60 genTime is usable when the chain is checked at genTime, not a "bad genTime"
+    (datetime cannot hold second 60). It counts as 23:59:59, like the Rust profile (time::rfc3339_unix clamps 60 to 59)."""
+    assert _gen_unix("2016-12-31T23:59:60Z") == _gen_unix("2016-12-31T23:59:59Z") == 1483228799
+    assert _gen_unix("2017-01-01T00:00:00Z") == 1483228800
+    with pytest.raises(TimestampError, match="bad genTime"):
+        _gen_unix("2026-11-24T12:00:60Z")
+    # The shared chain fixtures are checked at 2026-06-01T00:00:00Z; 2026-05-31T23:59:60Z counts as 23:59:59.
+    case = Path(__file__).parent / "fixtures" / "tsa-chains" / "cases" / "ok_root_issues_tsa"
+    leaf = load_ca_bundle(case / "leaf.pem")[0]
+    chain = load_ca_bundle(case / "chain.pem") if (case / "chain.pem").exists() else []
+    anchors = load_ca_bundle(case / "anchors.pem")
+    want = validate_chain(leaf, chain, anchors, "2026-05-31T23:59:59Z")
+    assert validate_chain(leaf, chain, anchors, "2026-05-31T23:59:60Z") == want
 
 
 def test_nonce_is_required_in_the_response_when_sent():
