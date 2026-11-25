@@ -563,11 +563,11 @@ _NAME_KIND = {
 
 def _gen_unix(gen_time: str) -> float:
     """Unix time of an ISO 8601 UTC genTime from _gen_time_of. datetime cannot hold a leap second, so 23:59:60 is
-    computed from 23:59:59 plus one second (the same instant as 00:00:00 of the next day, as in the Rust profile)."""
+    counted as 23:59:59 (Unix time has no leap seconds), the same value as the Rust profile's time::rfc3339_unix,
+    which clamps the second to 59."""
     try:
-        leap = gen_time.endswith("23:59:60Z")
-        at = gen_time[: -len("60Z")] + "59Z" if leap else gen_time
-        return _dt.datetime.fromisoformat(at.replace("Z", "+00:00")).timestamp() + (1 if leap else 0)
+        at = gen_time[: -len("60Z")] + "59Z" if gen_time.endswith("23:59:60Z") else gen_time
+        return _dt.datetime.fromisoformat(at.replace("Z", "+00:00")).timestamp()
     except ValueError as e:
         raise TimestampError(f"bad genTime {gen_time}: {e}") from e
 
