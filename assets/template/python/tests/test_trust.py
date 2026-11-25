@@ -242,11 +242,29 @@ def test_malformed_gen_time_is_an_error():
         b"20261324120000Z",
         b"20261124240000Z",
         b"20261124120061Z",
+        # Dates that do not exist (Codex on rakvor-tool-forge#24): 30 February, 29 February of a common year
+        # (2025, and 1900: a century that is not a multiple of 400), 31 April, year 0000.
+        b"20260230120000Z",
+        b"20250229120000Z",
+        b"19000229120000Z",
+        b"20260431120000Z",
+        b"00001124120000Z",
+        b"00000101000000Z",
     ]:
         with pytest.raises(TimestampError, match="bad genTime"):
             parse_response(_crafted_response(d, bad, None), d, None)
         with pytest.raises(TimestampError):
             verify_token(_crafted_response(d, bad, None), d, None)
+    # Leap days that exist (2024; 2000 is a multiple of 400), month ends, and the first possible year.
+    for good, iso in [
+        (b"20240229120000Z", "2024-02-29T12:00:00Z"),
+        (b"20000229000000Z", "2000-02-29T00:00:00Z"),
+        (b"20260228235959Z", "2026-02-28T23:59:59Z"),
+        (b"20260430120000Z", "2026-04-30T12:00:00Z"),
+        (b"20261231120000Z", "2026-12-31T12:00:00Z"),
+        (b"00010101000000Z", "0001-01-01T00:00:00Z"),
+    ]:
+        assert parse_response(_crafted_response(d, good, None), d, None)[0] == iso, good
 
 
 def test_nonce_is_required_in_the_response_when_sent():

@@ -74,7 +74,9 @@ def build_request(digest: bytes) -> tuple[bytes, int]:
 def _gen_time_of(raw: bytes) -> str:
     """genTime as ISO 8601 UTC. RFC 3161 §2.4.2: a GeneralizedTime YYYYMMDDhhmmss[.f…]Z (seconds present,
     optional fraction, UTC), checked on the raw bytes, same rule as the Rust profile (SEC-HI-01): a local time,
-    an offset, missing seconds or a non-ASCII value is an error. Trailing zeros in the fraction are tolerated."""
+    an offset, missing seconds or a non-ASCII value is an error. Trailing zeros in the fraction are tolerated.
+    The date must exist in the proleptic Gregorian calendar: year 0001 or later, and a day that the month has
+    (29 February only in a leap year), so 20260230… or year 0000 is an error."""
     bad = TimestampError("bad genTime (not a GeneralizedTime YYYYMMDDhhmmss[.fff]Z)")
     digits, rest = raw[:14], raw[14:]
     if len(digits) != 14 or not all(0x30 <= b <= 0x39 for b in digits):
@@ -83,8 +85,11 @@ def _gen_time_of(raw: bytes) -> str:
     if not (rest == b"Z" or (rest[:1] == b"." and rest[-1:] == b"Z" and frac and all(0x30 <= b <= 0x39 for b in frac))):
         raise bad
     d = digits.decode("ascii")
+    year = int(d[0:4])
     month, day, hour, minute, second = (int(d[i : i + 2]) for i in (4, 6, 8, 10, 12))
-    if not (1 <= month <= 12 and 1 <= day <= 31 and hour <= 23 and minute <= 59 and second <= 60):
+    leap = year % 4 == 0 and (year % 100 != 0 or year % 400 == 0)
+    days_in_month = {1: 31, 2: 29 if leap else 28, 3: 31, 4: 30, 5: 31, 6: 30, 7: 31, 8: 31, 9: 30, 10: 31, 11: 30, 12: 31}
+    if not (year >= 1 and 1 <= day <= days_in_month.get(month, 0) and hour <= 23 and minute <= 59 and second <= 60):
         raise bad
     return f"{d[0:4]}-{d[4:6]}-{d[6:8]}T{d[8:10]}:{d[10:12]}:{d[12:14]}Z"
 
