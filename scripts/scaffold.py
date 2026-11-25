@@ -11,7 +11,8 @@ Usage:
   python scaffold.py --profile python --name rv-whatsapp-rsmf --title "RV WhatsApp to RSMF" --description "..." --out .
 
 Options:
-  --repo-url URL       GitHub URL written into README/Cargo/installer (default https://github.com/rakvor/<name>)
+  --repo-url URL       GitHub URL written into README/Cargo/installer (default https://github.com/rakvor/<name>), and
+                       into LICENSE (Required Notice) and COMMERCIAL.md (default https://github.com/Panacota96/<name>)
   --command NAME       planned main subcommand (default "scan"), stored as .forge.json `planned_command`. The
                        template's subcommand is always `scan` and `run_command` stays "scan" so the fresh scaffold
                        validates green; the CLI agent renames the verb in code, then sets run_command to it.
@@ -62,6 +63,10 @@ SKIP_DIRS = {"target", ".venv", "dist", "build", "__pycache__", ".git", "rakvor-
 TEXT_SUFFIXES = {".rs", ".toml", ".py", ".md", ".json", ".yml", ".yaml", ".iss", ".ps1", ".sh", ".css", ".html", ".txt", ".lock",
                  ".gitignore", ".gitattributes", ""}
 REF = {"name": "rv-hashinv", "module": "rv_hashinv", "title": "RV HashInv", "repo": "https://github.com/rakvor/rv-hashinv"}
+# LICENSE's Required Notice and COMMERCIAL.md name the reference tool's real repository. Without --repo-url the
+# rename below turns it into https://github.com/Panacota96/<name>; with --repo-url it becomes that URL.
+LICENCE_REPO = "https://github.com/Panacota96/rv-hashinv"
+LICENCE_FILES = (Path("LICENSE"), Path("COMMERCIAL.md"))
 GUID_RE = re.compile(r"\{\{[0-9A-F]{8}-[0-9A-F]{4}-[0-9A-F]{4}-[0-9A-F]{4}-[0-9A-F]{12}\}")
 DESC_RE = re.compile(r"(<!-- forge:description -->\n)(.*?)(\n<!-- /forge:description -->)", re.S)
 
@@ -113,7 +118,8 @@ def main() -> int:
         if is_text(path) and "evidence" not in rel.parts:
             text = path.read_text(encoding="utf-8")
             new = text
-            for old, value in replacements:
+            licence_repo = [(LICENCE_REPO, repo)] if a.repo_url and rel in LICENCE_FILES else []
+            for old, value in licence_repo + replacements:
                 new = new.replace(old, value)
             new = GUID_RE.sub(lambda _m: "{{" + str(uuid.uuid4()).upper() + "}", new)
             new = DESC_RE.sub(lambda m: m.group(1) + a.description + m.group(3), new)

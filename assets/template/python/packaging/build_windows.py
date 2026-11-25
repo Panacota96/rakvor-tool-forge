@@ -70,7 +70,7 @@ def main() -> None:
     shutil.copytree(gui, target)
     # Merge the CLI build into the same folder (shared Python runtime and packages).
     shutil.copytree(cli, target, dirs_exist_ok=True)
-    for f in ("README.md", "LICENSE", "NOTICE", "CHANGELOG.md"):
+    for f in ("README.md", "LICENSE", "COMMERCIAL.md", "NOTICE", "CHANGELOG.md"):
         shutil.copy2(ROOT / f, target / f)
     print(f"built {target}")
 
