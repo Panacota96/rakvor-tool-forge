@@ -69,9 +69,17 @@ SKIP_PARTS = {"target", ".venv", "dist", "node_modules", ".git"}
 class Report:
     def __init__(self) -> None:
         self.checks: list[dict] = []
+        self.warnings: list[dict] = []
 
     def add(self, name: str, passed: bool, detail: str = "") -> bool:
         self.checks.append({"name": name, "passed": bool(passed), "detail": detail})
+        return bool(passed)
+
+    def warn(self, name: str, passed: bool, detail: str = "") -> bool:
+        """A check that is reported but does not fail the validation (yet)."""
+        if not passed:
+            self.warnings.append({"name": name, "detail": detail})
+        self.add(name + ("" if passed else " (warning only)"), True, "")
         return bool(passed)
 
     @property
@@ -127,6 +135,13 @@ def static_checks(root: Path, r: Report) -> dict:
           licence_ok(lic) and (root / "COMMERCIAL.md").is_file(),
           "" if licence_ok(lic) else "LICENSE must start with 'Required Notice: Copyright …' and/or the PolyForm title line")
     r.add("required files present", not missing, ", ".join(missing))
+    if profile == "rust":
+        guides = [f"docs/quick-guide{s}.md" for s in ("", ".es", ".fr")]
+        no_guide = [g for g in guides if not (root / g).is_file()]
+        # A warning, not a failure, until the R-003 rollout gives every Rust tool its quick guide; the rollout item
+        # turns this into r.add(...) (required).
+        r.warn("quick guide in English, Spanish and French (docs/quick-guide{,.es,.fr}.md)", not no_guide,
+               ", ".join(no_guide))
     dirs = [COLLECTION_SAMPLE if d == "examples/sample/evidence" and input_mode(forge) == "collection" else d
             for d in REQUIRED_DIRS]
     missing_dirs = [d for d in dirs if not (root / d).is_dir()]
@@ -796,10 +811,12 @@ def main() -> int:
             r.add(f"{tool} available for --run", False, f"install {tool}")
     if a.json:
         print(json.dumps({"project": str(root), "profile": forge.get("profile"), "passed": len(r.checks) - len(r.failed),
-                          "failed": len(r.failed), "checks": r.checks}, indent=2))
+                          "failed": len(r.failed), "warnings": r.warnings, "checks": r.checks}, indent=2))
     else:
         for c in r.checks:
             print(f"[{'PASS' if c['passed'] else 'FAIL'}] {c['name']}" + (f"  — {c['detail']}" if c["detail"] and not c["passed"] else ""))
+        for w in r.warnings:
+            print(f"[WARN] {w['name']}" + (f"  — {w['detail']}" if w["detail"] else ""))
         print(f"\n{len(r.checks) - len(r.failed)}/{len(r.checks)} checks passed")
     return 0 if not r.failed else 1
 

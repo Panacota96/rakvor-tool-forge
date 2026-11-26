@@ -1,9 +1,3 @@
-<!--
-  Template note for the docs agent of a tool scaffolded from rv-hashinv: steps 1–5 and 7–11 are shared (release
-  assets, verification, installer, offline use, build from source, uninstall). Rewrite the parts between
-  forge:domain markers: native libraries the tool needs, and the expected result of the sample run.
--->
-
 # Installation and verification (Windows 10/11)
 
 RV HashInv runs **locally** on the examiner's Windows 10 or 11 PC (x64). It needs no administrator rights, no
@@ -179,8 +173,8 @@ rv-hashinv --version
 rv-hashinv self-test
 ```
 
-`self-test` prints `PASS` for md5, sha1, sha256, sha512, sha3-256 and blake3 (known answers for `"abc"`), exit code
-0. It tests the hash implementations only. Then run the synthetic sample, which exercises type detection,
+`self-test` prints `PASS` for md5, sha1, sha256, sha512, sha3-256 and blake3 (known answers for `"abc"`), with exit
+code 0. It tests the hash implementations only. Then run the synthetic sample, which exercises type detection,
 duplicates, reports and the audit chain:
 
 ```powershell
@@ -230,7 +224,9 @@ TSA, [src/core/src/trust.rs](../src/core/src/trust.rs)). There is no telemetry o
 An offline run with the timestamp enabled still completes: it logs `timestamp_pending` and the statistics report
 shows a warning. Later, on a machine that can reach the TSA, run `rv-hashinv timestamp <log folder>` (it
 re-verifies the chain, then appends `timestamp_obtained`). To use an internal or qualified TSA, pass `--tsa-url`
-(see [admissibility.md](admissibility.md#53-eidas--regulation-eu-9102014-as-amended-by-eu-20241183)). The network
+(see [admissibility.md](admissibility.md#53-eidas--regulation-eu-9102014-as-amended-by-eu-20241183)). The timestamp is
+eIDAS-qualified only if the TSA address is that of a qualified trust service provider (QTSP) on an EU trusted list;
+the default address (DigiCert) is not one. The network
 restriction is not enforced by the OS; on a connected workstation, a Windows Firewall outbound rule for
 `rv-hashinv.exe` / `rv-hashinv-gui.exe` allowing only the TSA host enforces it.
 

@@ -2,6 +2,8 @@
 
 # RV HashInv
 
+**English** · [Español](README.es.md) · [Français](README.fr.md)
+
 <!-- forge:description -->
 **Evidence inventory for digital forensics.** RV HashInv hashes every file you give it (one file, a folder
 or a list), detects each file's real type, flags anomalies, and writes court-ready reports — with every
@@ -86,6 +88,7 @@ rv-hashinv verify-log rakvor-out\logs\<RUN-ID>
 rv-hashinv timestamp rakvor-out\logs\<RUN-ID>
 ```
 
+The five common tasks, step by step: [docs/quick-guide.md](docs/quick-guide.md).
 Every option, example and exit code: [docs/usage-cli.md](docs/usage-cli.md) (generated from `--help`).
 The desktop app: [docs/usage-gui.md](docs/usage-gui.md). A ready-made sample: [examples/](examples/README.md).
 
@@ -119,6 +122,7 @@ flowchart TB
 
 | Page | For |
 | --- | --- |
+| [docs/quick-guide.md](docs/quick-guide.md) | The five common tasks (scan, case folder, verify-log, verify-case, timestamp), every GUI button, exit codes |
 | [docs/usage.md](docs/usage.md) | End-to-end case walkthrough: intake, analysis, `verify-case`, reading every output, troubleshooting |
 | [docs/installation.md](docs/installation.md) | Installing and verifying a release (SHA256SUMS, provenance, Authenticode), building from source for auditors |
 | [docs/theory.md](docs/theory.md) | Why each step works: plain-language part for clients and courts, expert part with algorithms and real values |
@@ -133,6 +137,9 @@ flowchart TB
 | [docs/release-process.md](docs/release-process.md) | Windows packages, code signing and GitHub releases, step by step |
 | [docs/adr/](docs/adr/) | Architecture decisions (e.g. why Rust) |
 
+The README, the quick guide, the usage guide, the desktop-app guide and the installation guide also exist in Spanish
+(`.es.md`) and French (`.fr.md`); the English pages are the reference.
+
 ## Project layout
 
 ```text
@@ -146,6 +153,7 @@ rv-hashinv/
 ├── schemas/       JSON Schemas of the three report kinds
 ├── docs/          documentation (Mermaid diagrams render on GitHub)
 ├── tests/         cross-language checks (Python verifier of the audit chain)
+├── scripts/       docs checks (translations keep the shape of the English pages)
 ├── examples/      sample evidence + run scripts + expected hashes
 ├── packaging/     Windows installer (Inno Setup)
 └── .github/       CI and release workflows

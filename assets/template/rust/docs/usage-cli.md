@@ -198,6 +198,10 @@ EXAMPLES:
     rv-hashinv verify-case E:\CASE-014
   Re-examine two registered items of the case:
     rv-hashinv scan --case-dir E:\CASE-014 --evidence E0001,E0002
+  Offline lab: no timestamp request now; add it later with `rv-hashinv timestamp <LOG>`:
+    rv-hashinv scan -i D:\evidence -r --no-timestamp
+  The summary starts with DONE, "DONE (high-severity findings)" (exit code 3) or CANCELLED,
+  then gives the counts, the timestamp status and the report and log folders.
 
 EXIT CODES:
   0    Completed; no high-severity finding.
@@ -308,10 +312,15 @@ CHECKS:
     M recorded (algorithms)".
 
 EXAMPLES:
-  rv-hashinv verify-log rakvor-out/logs/20261019T101500Z-a1b2c3/audit.jsonl
-  rv-hashinv verify-log rakvor-out/logs/20261019T101500Z-a1b2c3
-  rv-hashinv verify-log E:\CASE-014\runs\rv-hashinv\20261019T101500Z-a1b2c3\logs
-  rv-hashinv verify-log rakvor-out/logs/20261019T101500Z-a1b2c3 --tsa-ca digicert-tsa-roots.pem
+  Verify a standalone run (its log folder, or the audit.jsonl in it):
+    rv-hashinv verify-log rakvor-out/logs/20261019T101500Z-a1b2c3
+    rv-hashinv verify-log rakvor-out/logs/20261019T101500Z-a1b2c3/audit.jsonl
+  Verify a run inside a case folder:
+    rv-hashinv verify-log E:\CASE-014\runs\rv-hashinv\20261019T101500Z-a1b2c3\logs
+  Also validate the TSA certificate chain against the TSA's own root certificates:
+    rv-hashinv verify-log rakvor-out/logs/20261019T101500Z-a1b2c3 --tsa-ca digicert-tsa-roots.pem
+  An intact log prints "OK  <N> entries, chain intact", then the timestamp, truncation and
+  outputs lines; an altered one prints BROKEN and one line per problem (exit code 3).
 
 EXIT CODES:
   0  The chain is intact and agrees with its timestamps and case record (if any), and every
@@ -337,7 +346,8 @@ Options:
           Print help (see a summary with '-h')
 
 EXAMPLES:
-  rv-hashinv self-test
+  Check this build before casework (one PASS or FAIL line per algorithm):
+    rv-hashinv self-test
 
 EXIT CODES:
   0  All algorithms give the published answer for the input "abc".
@@ -372,8 +382,13 @@ Options:
           Print help (see a summary with '-h')
 
 EXAMPLES:
-  rv-hashinv timestamp rakvor-out/logs/20261019T101500Z-a1b2c3
-  rv-hashinv timestamp rakvor-out/logs/20261019T101500Z-a1b2c3 --tsa-url https://freetsa.org/tsr
+  The run was offline (timestamp_pending): add the timestamp once the network is back:
+    rv-hashinv timestamp rakvor-out/logs/20261019T101500Z-a1b2c3
+  Use another RFC 3161 authority:
+    rv-hashinv timestamp rakvor-out/logs/20261019T101500Z-a1b2c3 --tsa-url https://freetsa.org/tsr
+  Name the examiner in the new audit entry:
+    rv-hashinv timestamp rakvor-out/logs/20261019T101500Z-a1b2c3 --actor "Ana Ruiz"
+  Success prints "OK  timestamp <TIME> by <TSA> covers entry #<N>"; then run verify-log.
 
 EXIT CODES:
   0  Timestamp obtained and logged.
@@ -416,8 +431,12 @@ CHECKS:
     and its digests are compared with the registry (the latest registration of a path).
 
 EXAMPLES:
-  rv-hashinv verify-case E:\CASE-014
-  rv-hashinv verify-case E:\CASE-014 --rehash
+  Check the case log, the registry and every run of the case:
+    rv-hashinv verify-case E:\CASE-014
+  Also read every registered evidence file again and compare it with the registry:
+    rv-hashinv verify-case E:\CASE-014 --rehash
+  An intact case prints "OK  case <ID>: ..." and an outputs line; a failed check prints
+  BROKEN and one line per problem (exit code 3).
 
 EXIT CODES:
   0  The case folder is intact (warnings, e.g. a run still in progress or an item not
@@ -455,8 +474,10 @@ OFF SWITCH:
   %APPDATA%\Rakvor (RV Hub's setting), turns the check off for every Rakvor tool.
 
 EXAMPLES:
-  rv-hashinv update-check
-  rv-hashinv update-check --json
+  Ask whether a newer release is published (one line):
+    rv-hashinv update-check
+  The same answer as JSON, for scripts:
+    rv-hashinv update-check --json
 
 EXIT CODES:
   0  This is the latest release, or the check is turned off.
@@ -489,7 +510,8 @@ DESCRIPTION:
   gui_exe, exit_codes. Nothing is read or written; no audit log is created.
 
 EXAMPLES:
-  rv-hashinv describe --json
+  Print the description that RV Hub reads:
+    rv-hashinv describe --json
 
 EXIT CODES:
   0  The description was printed.

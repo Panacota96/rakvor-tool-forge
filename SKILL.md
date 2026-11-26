@@ -159,7 +159,17 @@ CRAFT prompt §6 + `references/docs-style.md` + `references/reports.md`. Every p
 keeps ≥1 Mermaid diagram; render-check them with `mmdc` when available. The findings catalogue table in
 `docs/reports.md` must list every code with shows / does-not-prove.
 
-The four audit pages come from the template with the domain parts fenced by `<!-- forge:domain -->` markers:
+User text exists in English (the reference), Spanish and French: `README`, `docs/quick-guide`, `docs/usage`,
+`docs/usage-gui` and `docs/installation` each have `.es.md` and `.fr.md` copies (Rust template), checked by
+`scripts/check_doc_parity.py` in CI (same headings, numbered steps, code blocks, table rows and "to be verified"
+markers). `src/cli/tests/docs.rs` fails when the quick guide misses a subcommand, a flag of the five common tasks, a
+GUI button (its i18n label) or an exit code; `src/cli/tests/examples.rs` runs every `--help` example against the
+sample. Update the guide and both translations with the domain, and keep the examples runnable: in
+`docs/quick-guide{,.es,.fr}.md` rewrite the parts between `forge:domain` markers (what the tool is for, the scan
+options, Task 2), since a scaffolded analysis tool is not the intake tool.
+
+The four audit pages come from the template with the domain parts fenced by `<!-- forge:domain -->` markers
+(the notes for the docs agent are in the template's `docs/development.md`, "Documentation"):
 rewrite those, keep the shared sections (hashing, audit chain, case folder, trust, installation). For
 `docs/admissibility.md`, start from the sourced research `claude/admissibility-research.md` in the Rakvor project
 (read it with the Projects tool) and keep its "to be verified" markers — never upgrade an unverified citation.

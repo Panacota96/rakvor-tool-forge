@@ -1,15 +1,9 @@
-<!--
-  Template note for the docs agent of a tool scaffolded from rv-hashinv: sections 1, 2.3, 3 (shared rows), 6, 7,
-  8 and the shared troubleshooting tables apply to every Rakvor tool. Rewrite the parts between forge:domain
-  markers: the walkthrough steps that show what THIS tool does in the case (intake here; analysis in a new tool),
-  the domain outputs, the findings table and the domain messages.
--->
-
 # Usage guide: from intake to a verified case
 
 This is the end-to-end guide for an examiner. It walks through one case, explains every output, says how to read
 each finding, and how to prove afterwards that nothing changed. Option lists are not repeated here:
 
+- the five common tasks in short: [quick-guide.md](quick-guide.md);
 - every command, option, default, example and exit code: [usage-cli.md](usage-cli.md) (generated from `--help`);
 - the desktop app, window by window: [usage-gui.md](usage-gui.md);
 - the case folder contract: [case-folder.md](case-folder.md);

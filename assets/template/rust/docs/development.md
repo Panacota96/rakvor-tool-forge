@@ -14,6 +14,37 @@ cargo run -p rv-hashinv-gui
 Linux needs no system packages to build. On Windows use the MSVC toolchain (`rustup default stable-msvc`);
 binaries are linked with the static C runtime (`.cargo/config.toml`), so they run on a clean Windows 10/11.
 
+## Documentation
+
+User pages exist in English (the reference version), Spanish and French: `README{,.es,.fr}.md` and
+`docs/{quick-guide,usage,usage-gui,installation}{,.es,.fr}.md`. Change the English page first, then both
+translations in the same pull request. `python -I scripts/check_doc_parity.py` (CI, lint job) fails when a
+translation's headings, numbered steps, code blocks, table rows or "to be verified" markers differ from English;
+`src/cli/tests/docs.rs` fails when the quick guide misses a subcommand, a flag of the five common tasks, a GUI button
+(its label in `i18n/<lang>.json`) or an exit code. `docs/usage-cli.md` is generated (`rv-hashinv docs-cli`), and
+every worked example in a command's `--help` is run against the sample by `src/cli/tests/examples.rs`.
+
+Note for the docs agent of a tool scaffolded from rv-hashinv:
+
+- `docs/usage.md`: sections 1, 2.3, 3 (shared rows), 6, 7, 8 and the shared troubleshooting tables apply to every
+  Rakvor tool. Rewrite the parts between `forge:domain` markers: the walkthrough steps that show what this tool does
+  in the case (intake here; analysis in a new tool), the domain outputs, the findings table and the domain messages.
+- `docs/installation.md`: steps 1–5 and 7–11 are shared (release assets, verification, installer, offline use,
+  build from source, uninstall). Rewrite the parts between `forge:domain` markers: native libraries the tool needs,
+  and the expected result of the sample run.
+- `docs/quick-guide.md`: rewrite the parts between `forge:domain` markers: the paragraph on what the tool is for
+  (intake here; an analysis tool verifies against the registry instead), the scan options table, and Task 2 (an
+  analysis tool does not register evidence). `src/cli/tests/docs.rs` then checks the result against the binary.
+- Apply the same changes to the `.es.md` and `.fr.md` translations, which carry the same markers.
+
+```mermaid
+flowchart LR
+    EN["English page<br/>(reference)"] --> ES[".es.md"]
+    EN --> FR[".fr.md"]
+    ES & FR --> P["check_doc_parity.py<br/>same shape as EN"]
+    CODE["--help · describe --json<br/>i18n/*.json"] --> Q["tests/docs.rs<br/>quick guide coverage"]
+```
+
 ## Test pyramid
 
 ```mermaid
